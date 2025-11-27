@@ -170,7 +170,8 @@
     "certificateSubjectName": "INFOMANIAK NETWORK SA",
     "target": [
       "nsis",
-      "zip"
+      "zip",
+      "msi"
     ],
     "extraFiles": [
       {
@@ -186,6 +187,10 @@
   "nsis": {
     "artifactName": "${name}-setup-${version}-win.${ext}",
     "packElevateHelper": false
+  },
+  "msi": {
+    "artifactName": "${name}-${version}-${arch}.${ext}",
+    "perMachine": true
   },
   "rpm": {
     "fpm": ["--rpm-rpmbuild-define", "_build_id_links none", "--rpm-digest=sha256"]
