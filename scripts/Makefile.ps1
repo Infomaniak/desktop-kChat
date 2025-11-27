@@ -523,16 +523,20 @@ function InstallDeps-Electron {
     npm ci
 }
 
-function Run-BuildElectron {
-    #npm install --prefix="$(Get-RootDir)" "$(Get-RootDir)"
+function Run-BuildElectronNsis {
     Print-Info "Building nodejs/electron code (running npm run build)..."
     npm run build
-    #npm run build --prefix="$(Get-RootDir)" "$(Get-RootDir)"
-    Print-Info "Packaging nodejs/electron for Windows (running npm run package:windows)..."
+    Print-Info "Packaging nodejs/electron for Windows NSIS (running npm run package:windows-nsis)..."
     # NSIS has the upgrade flag enabled, so it must be done first
     npm run package:windows-nsis
-    # npm run package:windows
-    #npm run package:windows --prefix="$(Get-RootDir)" "$(Get-RootDir)"
+}
+
+function Run-BuildElectronMsi {
+    Print-Info "Building nodejs/electron code (running npm run build)..."
+    npm run build
+
+    Print-Info "Packaging nodejs/electron for Windows MSI (running npm run package:windows-msi)..."
+    npm run package:windows-msi
 }
 
 function Run-BuildForceSignature {
@@ -691,16 +695,23 @@ function Remove-Cert {
     }
 }
 
-function Run-Build {
+function Run-BuildNsis {
     Check-Deps -Verbose -Throwable
     Prepare-Path
     Write-AWSCredentials
     # Get-Cert
     Run-BuildId
-    Run-BuildElectron
-    # Run-BuildForceSignature
-    # Run-BuildLicense
-    # Run-BuildMsi
+    Run-BuildElectronNsis
+    Remove-Cert
+}
+
+function Run-BuildMsi {
+    Check-Deps -Verbose -Throwable
+    Prepare-Path
+    Write-AWSCredentials
+    # Get-Cert
+    Run-BuildId
+    Run-BuildElectronMsi
     Remove-Cert
 }
 
@@ -753,11 +764,16 @@ function Main {
         switch ($makeRule.toLower()) {
             "all" {
                 Install-Deps
-                Run-Build
+                Run-BuildNsis
+                Run-BuildMsi
             }
-            "build" {
+            "build-nsis" {
                 Install-Deps
-                Run-Build
+                Run-BuildNsis
+            }
+            "build-msi" {
+                Install-Deps
+                Run-BuildMsi
             }
             "test" {
                 Install-Deps
