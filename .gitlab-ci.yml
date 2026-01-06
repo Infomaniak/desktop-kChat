@@ -34,7 +34,8 @@ cache:
 
 install:
   stage: setup
-  extends: .system-deps
+  before_script:
+    - apt-get update && apt-get install -y libxtst6 libxtst-dev libx11-dev libxkbfile-dev
   cache:
     key:
       files:
@@ -45,6 +46,7 @@ install:
     policy: pull-push
   script:
     - npm ci --prefer-offline --no-audit
+    - npm rebuild
   artifacts:
     expire_in: 1h
     paths:
