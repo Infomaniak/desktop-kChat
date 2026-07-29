@@ -62,6 +62,7 @@ import {getDoNotDisturb} from 'main/notifications';
 import parseArgs from 'main/ParseArgs';
 import PerformanceMonitor from 'main/performanceMonitor';
 import permissionsManager from 'main/permissionsManager';
+import {setupAfterAppReady as setupProxyAfterAppReady} from 'main/proxyManager';
 import TokenManager from 'main/tokenManager';
 import Tray from 'main/tray/tray';
 import TrustedOriginsStore from 'main/trustedOrigins';
@@ -392,6 +393,7 @@ async function initializeAfterAppReady() {
 
     app.setAppUserModelId('com.infomaniak.chat'); // Use explicit AppUserModelID. This must match the 'desktopName' field in package.json for Windows notifications icon to display correctly.
     const defaultSession = session.defaultSession;
+    setupProxyAfterAppReady();
     defaultSession.webRequest.onHeadersReceived({urls: IKLoginAllowedUrls},
         (details, callback) => {
             if (details.url.includes('/token') && details.responseHeaders) {

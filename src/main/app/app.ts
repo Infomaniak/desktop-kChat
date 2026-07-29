@@ -9,6 +9,7 @@ import {parseURL} from 'common/utils/url';
 import updateManager from 'main/autoUpdater';
 import CertificateStore from 'main/certificateStore';
 import {localizeMessage} from 'main/i18nManager';
+import {setupBeforeAppReady as setupProxyBeforeAppReady} from 'main/proxyManager';
 import Tray from 'main/tray/tray';
 import UserActivityMonitor from 'main/UserActivityMonitor';
 import ViewManager from 'main/views/viewManager';
@@ -21,6 +22,8 @@ export const certificateErrorCallbacks = new Map();
 app.commandLine.appendSwitch('disable-site-isolation-trials');
 app.commandLine.appendSwitch('disable-features', 'DesktopCaptureMacV2,IOSurfaceCapturer');
 app.commandLine.appendSwitch('force-fieldtrials', 'WebRTC-Audio-Red-For-Opus/Enabled/');
+
+setupProxyBeforeAppReady();
 
 // Wayland: Enable optional PipeWire support.
 if (!app.commandLine.hasSwitch('enable-features')) {
