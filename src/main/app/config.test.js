@@ -1,6 +1,7 @@
 // Copyright (c) 2016-present Mattermost, Inc. All Rights Reserved.
 // See LICENSE.txt for license information.
 
+import fs from 'fs';
 import os from 'os';
 import path from 'path';
 
@@ -30,6 +31,10 @@ jest.mock('electron', () => ({
 
 jest.mock('os', () => ({
     homedir: jest.fn(),
+}));
+
+jest.mock('fs', () => ({
+    readFileSync: jest.fn(),
 }));
 
 jest.mock('main/app/utils', () => ({
@@ -113,6 +118,36 @@ describe('main/app/config', () => {
             process.env.XDG_DOWNLOAD_DIR = '/home/user/xdg-downloads';
             const result = getDefaultDownloadLocation();
             expect(result).toBe('/home/user/xdg-downloads');
+        });
+
+        it('should parse user-dirs.dirs on Linux when XDG_DOWNLOAD_DIR env is not set', () => {
+            Object.defineProperty(process, 'platform', {
+                value: 'linux',
+            });
+
+            delete process.env.XDG_DOWNLOAD_DIR;
+
+            (os.homedir).mockReturnValue('/home/user');
+            fs.readFileSync.mockReturnValue('XDG_DOWNLOAD_DIR="$HOME/Téléchargements"');
+
+            const result = getDefaultDownloadLocation();
+
+            expect(result).toBe('/home/user/Téléchargements');
+        });
+
+        it('should fall back to app.getPath when user-dirs.dirs has no XDG_DOWNLOAD_DIR on Linux', () => {
+            Object.defineProperty(process, 'platform', {
+                value: 'linux',
+            });
+
+            delete process.env.XDG_DOWNLOAD_DIR;
+
+            fs.readFileSync.mockReturnValue('XDG_DOCUMENTS_DIR="$HOME/Documents"');
+            (app.getPath).mockReturnValue('/custom/downloads');
+
+            const result = getDefaultDownloadLocation();
+
+            expect(result).toBe('/custom/downloads');
         });
 
         it('should return app.getPath("downloads") if available', () => {
