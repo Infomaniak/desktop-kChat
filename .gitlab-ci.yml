@@ -13,6 +13,7 @@ variables:
 
 default:
   interruptible: true
+  tags: [shared, standard]
 
 cache:
   key:
@@ -112,14 +113,8 @@ unit-tests:
     - install
   script:
     - npm run test
-  coverage: '/All files[^|]*\|[^|]*\s+([\d\.]+)/'
   artifacts:
     when: always
     expire_in: 7 days
     reports:
       junit: junit.xml
-      coverage_report:
-        coverage_format: cobertura
-        path: coverage/cobertura-coverage.xml
-    paths:
-      - coverage/

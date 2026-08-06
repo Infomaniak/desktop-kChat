@@ -30,7 +30,7 @@
         "lint:js": "eslint --ext .js,.jsx,.tsx,.ts --cache .",
         "lint:js-quiet": "npm run lint:js -- --quiet",
         "fix:js": "npm run lint:js-quiet -- --fix",
-        "test": "jest",
+        "test": "jest --maxWorkers=4",
         "test:unit-coverage": "jest --coverage",
         "e2e": "npm run build-test && cd e2e && npm i && npm run run:e2e",
         "build": "run-p build:*",
