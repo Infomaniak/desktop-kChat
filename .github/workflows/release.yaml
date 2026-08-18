@@ -193,7 +193,7 @@ jobs:
           env:
             GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           run: |
-            VERSION=$(jq -r .version package.json)
+            VERSION="${GITHUB_REF_NAME}"
             RELEASE_TITLE="v${VERSION} ($(date -u "+%Y-%m-%d"))"
             [[ $VERSION =~ "-beta" ]] || [[ $VERSION =~ "-alpha" ]] && PRERELEASE="--prerelease"
             gh release create --draft ${PRERELEASE} --verify-tag --target "${GITHUB_SHA}" --title "${RELEASE_TITLE}" "${GITHUB_REF_NAME}" ./ghr-dist/*
