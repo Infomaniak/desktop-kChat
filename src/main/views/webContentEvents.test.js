@@ -76,30 +76,19 @@ describe('main/views/webContentsEvents', () => {
 
     describe('willNavigate', () => {
         const webContentsEventManager = new WebContentsEventManager();
-        webContentsEventManager.getServerURLFromWebContentsId = () => new URL('http://server-1.com');
         const willNavigate = webContentsEventManager.generateWillNavigate(1);
-        const popupWindowSpy = jest.spyOn(webContentsEventManager, 'isTrustedPopupWindow');
 
         afterEach(() => {
             event.preventDefault.mockClear();
-            popupWindowSpy.mockReset();
-            webContentsEventManager.customLogins = {};
-            webContentsEventManager.popupWindow = undefined;
         });
 
-        it('should allow navigation when url isTeamURL', () => {
+        it('should allow navigation when url is valid', () => {
             willNavigate(event, 'http://server-1.com/subpath');
             expect(event.preventDefault).not.toBeCalled();
         });
 
-        it('should allow navigation when url isAdminURL', () => {
-            willNavigate(event, 'http://server-1.com/admin_console/subpath');
-            expect(event.preventDefault).not.toBeCalled();
-        });
-
-        it('should allow navigation when isTrustedPopup', () => {
-            popupWindowSpy.mockReturnValue(true);
-            willNavigate(event, 'http://externalurl.com/popup/subpath');
+        it('should allow navigation when url is an external valid URL', () => {
+            willNavigate(event, 'http://someotherurl.com');
             expect(event.preventDefault).not.toBeCalled();
         });
 
@@ -108,13 +97,8 @@ describe('main/views/webContentsEvents', () => {
             expect(event.preventDefault).not.toBeCalled();
         });
 
-        it('should allow navigation when it isChannelExportUrl', () => {
-            willNavigate(event, 'http://server-1.com/plugins/com.mattermost.plugin-channel-export/api/v1/export');
-            expect(event.preventDefault).not.toBeCalled();
-        });
-
-        it('should not allow navigation under any other circumstances', () => {
-            willNavigate(event, 'http://someotherurl.com');
+        it('should prevent navigation when URL is not parseable', () => {
+            willNavigate(event, 'a-bad<url');
             expect(event.preventDefault).toBeCalled();
         });
     });
