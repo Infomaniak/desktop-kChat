@@ -19,13 +19,24 @@ function startElectron() {
     electronProcess = spawn(
         process.platform === 'win32' ? 'electron.cmd' : 'electron',
         [path.resolve('dist/')],
-        {stdio: 'inherit'},
+        {stdio: 'inherit', shell: process.platform === 'win32'},
     );
+}
+
+function killElectron() {
+    if (electronProcess === null) {
+        return;
+    }
+    if (process.platform === 'win32') {
+        spawn('taskkill', ['/F', '/T', '/PID', String(electronProcess.pid)], {stdio: 'ignore'});
+    } else {
+        electronProcess.kill();
+    }
 }
 
 function restartElectron() {
     if (electronProcess) {
-        electronProcess.kill();
+        killElectron();
         electronProcess.on('close', () => {
             startElectron();
         });
