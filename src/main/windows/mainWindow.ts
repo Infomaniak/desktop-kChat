@@ -476,7 +476,7 @@ export class MainWindow extends EventEmitter {
     };
 
     private handleUpdateTitleBarOverlay = () => {
-        if (process.platform === 'linux') {
+        if (process.platform === 'linux' || process.platform === 'win32') {
             this.win?.setTitleBarOverlay?.(this.getTitleBarOverlay());
         }
     };
