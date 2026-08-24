@@ -123,22 +123,16 @@ jobs:
                   choco install yq --version 4.15.1 -y
                   npm i -g node-gyp
                   node-gyp install
-                  node-gyp install --devdir="C:\Users\runneradmin\.electron-gyp" --target=$(jq -r .devDependencies.electron package.json) --dist-url="https://electronjs.org/headers"
-                  node-gyp install --devdir="C:\Users\runneradmin\.electron-gyp" --target=$(jq -r .devDependencies.electron package.json) --dist-url="https://electronjs.org/headers" --arch arm64
-                  node-gyp install --devdir="C:\Users\runneradmin\.electron-gyp" --target=$(jq -r .devDependencies.electron package.json) --dist-url="https://electronjs.org/headers" --arch ia32
+                  node-gyp install --devdir="$env:USERPROFILE\.electron-gyp" --target=$(jq -r .devDependencies.electron package.json) --dist-url="https://electronjs.org/headers"
+                  node-gyp install --devdir="$env:USERPROFILE\.electron-gyp" --target=$(jq -r .devDependencies.electron package.json) --dist-url="https://electronjs.org/headers" --arch arm64
+                  node-gyp install --devdir="$env:USERPROFILE\.electron-gyp" --target=$(jq -r .devDependencies.electron package.json) --dist-url="https://electronjs.org/headers" --arch ia32
                   npm ci --openssl_fips=''
             - name: release/update-version
               uses: ./.github/actions/version
-            # - name: release/test
-            #   uses: ./.github/actions/test
-            - name: release/build
+            - name: release/build-nsis
               shell: powershell
               env:
                   MM_WIN_INSTALLERS: 1
-                  # PFX_KEY: ${{ secrets.MM_DESKTOP_MSI_INSTALLER_PFX_KEY }}
-                  # CSC_KEY_PASSWORD: ${{ secrets.MM_DESKTOP_MSI_INSTALLER_CSC_KEY_PASSWORD }}
-                  # PFX: ${{ secrets.MM_DESKTOP_MSI_INSTALLER_PFX }}
-                  # CSC_LINK: ${{ secrets.MM_DESKTOP_MSI_INSTALLER_CSC_LINK }}
                   SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
                   SENTRY_RELEASE: ${{ github.ref_name }}
                   AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -154,47 +148,13 @@ jobs:
               run: |
                   ./scripts/setup-keylocker.ps1
                   ./scripts/Makefile.ps1 build-nsis
-            - name: release/package
+            - name: release/package-nsis
               run: |
                 mkdir -p ./build/win-release
                 bash -x ./scripts/cp_artifacts.sh release ./build/win-release
-            - name: release/upload-build
-              uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3 # v4.3.1
-              with:
-                name: build-${{ runner.os }}
-                path: ./build
-                compression-level: 0
-                retention-days: 14
-
-    build-windows-msi:
-        runs-on: windows-2022
-        steps:
-            - name: release/checkout-repo
-              uses: actions/checkout@v3
-            - name: release/setup-node
-              uses: actions/setup-node@v3
-              with:
-                  node-version: "18.15.0"
-            - name: release/optimize
+            - name: release/clean-release
               shell: powershell
-              run: ./scripts/Makefile.ps1 optimize
-            - name: release/install-deps
-              env:
-                  NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-              shell: powershell
-              run: |
-                  ./scripts/Makefile.ps1 install-deps
-                  choco install yq --version 4.15.1 -y
-                  npm i -g node-gyp
-                  node-gyp install
-                  node-gyp install --devdir="C:\Users\runneradmin\.electron-gyp" --target=$(jq -r .devDependencies.electron package.json) --dist-url="https://electronjs.org/headers"
-                  node-gyp install --devdir="C:\Users\runneradmin\.electron-gyp" --target=$(jq -r .devDependencies.electron package.json) --dist-url="https://electronjs.org/headers" --arch arm64
-                  node-gyp install --devdir="C:\Users\runneradmin\.electron-gyp" --target=$(jq -r .devDependencies.electron package.json) --dist-url="https://electronjs.org/headers" --arch ia32
-                  npm ci --openssl_fips=''
-            - name: release/update-version
-              uses: ./.github/actions/version
-            # - name: release/test
-            #   uses: ./.github/actions/test
+              run: Remove-Item release\* -Recurse -Force
             - name: release/build-msi
               shell: powershell
               env:
@@ -210,16 +170,15 @@ jobs:
                   SM_TOOLS_URI: ${{ secrets.SM_TOOLS_URI }}
                   SM_CLIENT_CERT_FILE: ${{ secrets.SM_CLIENT_CERT_FILE }}
               run: |
-                  ./scripts/setup-keylocker.ps1
                   ./scripts/Makefile.ps1 build-msi
-            - name: release/package
+            - name: release/package-msi
               run: |
                 mkdir -p ./build/win-msi
                 bash -x ./scripts/cp_artifacts.sh release ./build/win-msi
             - name: release/upload-build
               uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3 # v4.3.1
               with:
-                name: build-windows-msi
+                name: build-${{ runner.os }}
                 path: ./build
                 compression-level: 0
                 retention-days: 14
@@ -228,7 +187,6 @@ jobs:
       runs-on: ubuntu-22.04
       needs:
         - build-windows
-        - build-windows-msi
         - build-linux
         - build-linux-arm
       steps:
@@ -264,7 +222,6 @@ jobs:
             - build-linux
             - build-linux-arm
             - build-windows
-            - build-windows-msi
             - github-release
         if: always()
         steps:
@@ -279,7 +236,6 @@ jobs:
                   BUILD_LINUX_RESULT: ${{ needs.build-linux.result }}
                   BUILD_LINUX_ARM_RESULT: ${{ needs.build-linux-arm.result }}
                   BUILD_WINDOWS_RESULT: ${{ needs.build-windows.result }}
-                  BUILD_WINDOWS_MSI_RESULT: ${{ needs.build-windows-msi.result }}
                   GITHUB_RELEASE_RESULT: ${{ needs.github-release.result }}
               run: |
                   jq --null-input \
