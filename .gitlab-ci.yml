@@ -47,7 +47,6 @@ install:
     policy: pull-push
   script:
     - npm ci --prefer-offline --no-audit
-    - npm rebuild
   artifacts:
     expire_in: 1h
     paths:
