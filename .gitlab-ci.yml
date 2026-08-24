@@ -2,6 +2,7 @@ image: node:20.15.0
 
 stages:
   - setup
+  - translations
   - quality
   - build
   - test
@@ -12,6 +13,7 @@ variables:
 
 default:
   interruptible: true
+  tags: [shared, standard]
 
 cache:
   key:
@@ -30,7 +32,6 @@ cache:
 .system-deps:
   before_script:
     - apt-get update && apt-get install -y libxtst6 libxtst-dev libx11-dev libxkbfile-dev
-    - npm rebuild
 
 install:
   stage: setup
@@ -52,6 +53,16 @@ install:
     paths:
       - node_modules/
 
+translations:check:
+  stage: translations
+  extends: .node-base
+  needs: ["install"]
+  dependencies:
+    - install
+  script:
+    - npm run check:i18n:ci
+    - git diff --exit-code i18n/ || { echo "⛔ i18n files changed, commit the updates."; exit 1; }
+
 lint:
   stage: quality
   extends: .node-base
@@ -59,8 +70,25 @@ lint:
   dependencies:
     - install
   script:
-    - npm run lint:js
-  allow_failure: true
+    - npm run lint:js-quiet
+
+check-types:
+  stage: quality
+  extends: .node-base
+  needs: ["install"]
+  dependencies:
+    - install
+  script:
+    - npm run check-types
+
+check-build-types:
+  stage: quality
+  extends: .node-base
+  needs: ["install"]
+  dependencies:
+    - install
+  script:
+    - npm run check-build-config
 
 build:
   stage: build
@@ -76,14 +104,6 @@ build:
       - dist/
       - build/
 
-check-types:
-  stage: test
-  extends: .node-base
-  needs: ["install"]
-  dependencies:
-    - install
-  script:
-    - npm run check-types
 
 unit-tests:
   stage: test
@@ -94,15 +114,9 @@ unit-tests:
   dependencies:
     - install
   script:
-    - npm run test:unit
-  coverage: '/All files[^|]*\|[^|]*\s+([\d\.]+)/'
+    - npm run test
   artifacts:
     when: always
     expire_in: 7 days
     reports:
       junit: junit.xml
-      coverage_report:
-        coverage_format: cobertura
-        path: coverage/cobertura-coverage.xml
-    paths:
-      - coverage/

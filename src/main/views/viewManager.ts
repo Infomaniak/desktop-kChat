@@ -1,13 +1,14 @@
 // Copyright (c) 2016-present Mattermost, Inc. All Rights Reserved.
 // See LICENSE.txt for license information.
 
-import type {BrowserWindow, IpcMainEvent, IpcMainInvokeEvent, View} from 'electron';
+import type {IpcMainEvent, IpcMainInvokeEvent, View} from 'electron';
 import {WebContentsView, ipcMain, session, shell} from 'electron';
 import isDev from 'electron-is-dev';
 
 import ServerViewState from 'app/serverViewState';
 import AppState from 'common/appState';
 import {
+    DARK_MODE_CHANGE,
     UPDATE_TARGET_URL,
     LOAD_SUCCESS,
     LOAD_FAILED,
@@ -34,14 +35,10 @@ import {
     RESET_TOKEN,
     TOKEN_REFRESHED,
     TOKEN_REQUEST,
-    CALL_JOINED,
-    CALL_DECLINED,
     CALL_RINGING,
-    CALL_JOINED_BROWSER,
     THEME_CHANGED,
     REQUEST_BROWSER_HISTORY_STATUS,
     UNREADS_AND_MENTIONS,
-    CALL_API_AVAILABLE,
     OPEN_SERVER_UPGRADE_LINK,
     TAB_LOGIN_CHANGED,
     DEVELOPER_MODE_UPDATED,
@@ -58,6 +55,7 @@ import Utils from 'common/utils/util';
 import type {MattermostView} from 'common/views/View';
 import {TAB_MESSAGING} from 'common/views/View';
 import {handleWelcomeScreenModal} from 'main/app/intercom';
+import {initTheme, updateTheme} from 'main/app/theme';
 import {flushCookiesStore, updateServerInfos} from 'main/app/utils';
 import DeveloperMode from 'main/developerMode';
 import performanceMonitor from 'main/performanceMonitor';
@@ -65,7 +63,6 @@ import PermissionsManager from 'main/permissionsManager';
 import TokenManager from 'main/tokenManager';
 import ModalManager from 'main/views/modalManager';
 import callDialingWindow from 'main/windows/callDialingWindow';
-import KmeetCallWindow from 'main/windows/kmeetCallWindow';
 import MainWindow from 'main/windows/mainWindow';
 
 import type {DeveloperSettings} from 'types/settings';
@@ -79,11 +76,11 @@ import {getLocalPreload, getAdjustedWindowBoundaries} from '../utils';
 const log = new Logger('ViewManager');
 const URL_VIEW_DURATION = 10 * SECOND;
 const URL_VIEW_HEIGHT = 20;
+
 export class ViewManager {
     private closedViews: Map<string, {srv: MattermostServer; view: MattermostView}>;
     private views: Map<string, MattermostWebContentsView>;
     private currentView?: string;
-    private callWindow?: BrowserWindow | null;
 
     private urlView?: WebContentsView;
     private urlViewCancel?: () => void;
@@ -119,14 +116,12 @@ export class ViewManager {
         ipcMain.handle(RESET_TOKEN, this.handleResetToken);
         ipcMain.handle(RESET_AUTH, this.handleRevokeToken);
 
-        // ipcMain.on(CALL_JOINED, this.handleCallJoined);
-        ipcMain.on(CALL_JOINED_BROWSER, this.handleCallJoinedBrowser);
-
-        // ipcMain.on(CALL_DECLINED, this.handleCallDeclined);
-        ipcMain.on(CALL_API_AVAILABLE, this.handleCallApiAvailable);
         ipcMain.on(CALL_RINGING, this.handleCallDialing);
         ipcMain.handle(RESET_TEAMS, this.resetTeams);
-        ipcMain.on(THEME_CHANGED, this.handleThemeChanged);
+        ipcMain.on(THEME_CHANGED, (_event, _callId, data) => {
+            updateTheme(data);
+            viewManager.sendToAllViews(THEME_CHANGED, data);
+        });
 
         ServerManager.on(SERVERS_UPDATE, this.handleReloadConfiguration);
         DeveloperMode.on(DEVELOPER_MODE_UPDATED, this.handleDeveloperModeUpdated);
@@ -134,6 +129,10 @@ export class ViewManager {
 
     private init = async () => {
         TokenManager.load();
+
+        // Initialize theme using ThemeManager
+        initTheme();
+
         if (ServerManager.hasServers()) {
             // TODO: This init should be happening elsewhere, future refactor will fix this
             ServerViewState.init();
@@ -156,6 +155,10 @@ export class ViewManager {
         this.loadServer(server);
     };
 
+    setDarkMode = (darkMode: boolean) => {
+        this.urlView?.webContents.send(DARK_MODE_CHANGE, darkMode);
+    };
+
     private initURLView = () => {
         const mainWindow = MainWindow.get();
         if (!mainWindow) {
@@ -165,7 +168,7 @@ export class ViewManager {
         const urlView = new WebContentsView({webPreferences: {preload: getLocalPreload('internalAPI.js')}});
         urlView.setBackgroundColor('#00000000');
 
-        urlView.webContents.loadURL('mattermost-desktop://renderer/urlView.html');
+        urlView.webContents.loadURL('kchat-desktop://renderer/urlView.html');
 
         MainWindow.get()?.contentView.addChildView(urlView);
 
@@ -277,45 +280,8 @@ export class ViewManager {
         ServerManager.reloadFromConfig();
     };
 
-    handleThemeChanged = (_view: any, _viewId: any, data: object) => {
-        Config.set('theme', data);
-        viewManager.sendToAllViews(THEME_CHANGED, data);
-    };
-
-    handleCallJoined = (_: IpcMainEvent, message: any) => {
-        //TODO: kMeet integration V2 => open call in a new window.
-        //remove shell.openExternal and uncomment code below.
-        // shell.openExternal(message.url);
-        this.sendToAllViews(CALL_JOINED, message);
-        this.destroyCallWindow();
-        KmeetCallWindow.create(message);
-
-        /*const withDevTools = true;
-        this.callWindow = createCallWindow(this.mainWindow!, withDevTools);
-        this.callWindow.loadURL(message.url);
-        windowManager.sendToMattermostViews(CALL_JOINED, message);*/
-    };
-
-    handleCallJoinedBrowser = (_: IpcMainEvent, message: any) => {
-        this.sendToAllViews(CALL_JOINED, message);
-        this.destroyCallWindow();
-    };
-
     handleCallDialing = (_: IpcMainEvent, message: any) => {
         callDialingWindow.create(message);
-    };
-
-    handleCallDeclined = (_: IpcMainEvent, message: unknown) => {
-        this.sendToAllViews(CALL_DECLINED, message);
-        this.destroyCallWindow();
-    };
-
-    handleCallApiAvailable = (_: IpcMainEvent, message: unknown) => {
-        this.getCurrentView()?.sendToRenderer(CALL_API_AVAILABLE, message);
-    };
-
-    destroyCallWindow = () => {
-        callDialingWindow.destroy();
     };
 
     handleTokenRefreshed = (event: IpcMainEvent, message: any) => {
@@ -723,6 +689,12 @@ export class ViewManager {
             if (this.getCurrentView() === view) {
                 ServersSidebar.show();
                 LoadingScreen.fade();
+            }
+
+            // Send current theme to the webview
+            if (Config.theme) {
+                log.debug('sending THEME_CHANGED to view', view.id);
+                view.sendToRenderer(THEME_CHANGED, Config.theme);
             }
         }
     };

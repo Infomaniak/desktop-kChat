@@ -2,6 +2,7 @@
 // Copyright (c) 2016-present Mattermost, Inc. All Rights Reserved.
 // See LICENSE.txt for license information.
 
+import fs from 'fs';
 import os from 'os';
 import path from 'path';
 
@@ -14,6 +15,28 @@ import {app} from 'electron';
 
 import type {ConfigV3} from 'types/config';
 
+function parseXdgDownloadDir(): string | undefined {
+    const home = os.homedir();
+    if (!home) {
+        return undefined;
+    }
+    const configDir = process.env.XDG_CONFIG_HOME || path.join(home, '.config');
+    const userDirsFile = path.join(configDir, 'user-dirs.dirs');
+    try {
+        const contents = fs.readFileSync(userDirsFile, 'utf-8');
+        const match = contents.match(/^XDG_DOWNLOAD_DIR="(.+)"\r?$/m);
+        if (match) {
+            const dir = match[1].replace(/\$HOME/g, home);
+            if (dir) {
+                return dir;
+            }
+        }
+    } catch {
+        // File may not exist (e.g. minimal/headless systems)
+    }
+    return undefined;
+}
+
 export const getDefaultDownloadLocation = (): string | undefined => {
     // eslint-disable-next-line no-undef
     // eslint-disable-next-line @typescript-eslint/ban-ts-comment
@@ -22,8 +45,15 @@ export const getDefaultDownloadLocation = (): string | undefined => {
         return undefined;
     }
 
-    if (process.platform === 'linux' && process.env.XDG_DOWNLOAD_DIR) {
-        return process.env.XDG_DOWNLOAD_DIR;
+    if (process.platform === 'linux') {
+        if (process.env.XDG_DOWNLOAD_DIR) {
+            return process.env.XDG_DOWNLOAD_DIR;
+        }
+
+        const xdgDownload = parseXdgDownloadDir();
+        if (xdgDownload) {
+            return xdgDownload;
+        }
     }
 
     return app.getPath('downloads') || path.join(os.homedir(), 'Downloads');

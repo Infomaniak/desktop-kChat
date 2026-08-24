@@ -9,13 +9,10 @@ import {Logger} from 'common/log';
 import ServerManager from 'common/servers/serverManager';
 import {
     isAdminUrl,
-    isCallsPopOutURL,
-    isChannelExportUrl,
     isHelpUrl,
     isImageProxyUrl,
     isInternalURL,
     isKmeetUrl,
-    isLoginUrl,
     isManagedResource,
     isPluginUrl,
     isPublicFilesUrl,
@@ -81,37 +78,11 @@ export class WebContentsEventManager {
         return (event: Event, url: string) => {
             this.log(webContentsId).debug('will-navigate', url);
 
-            const parsedURL = parseURL(url)!;
-            const serverURL = this.getServerURLFromWebContentsId(webContentsId);
-
-            this.log(webContentsId).info(serverURL?.toString());
-
-            if (serverURL && (isTeamUrl(serverURL, parsedURL) || isAdminUrl(serverURL, parsedURL) || isLoginUrl(serverURL, parsedURL) || this.isTrustedPopupWindow(webContentsId))) {
-                return;
+            const parsedURL = parseURL(url);
+            if (!parsedURL || (parsedURL.protocol !== 'mailto:' && parsedURL.protocol !== 'http:' && parsedURL.protocol !== 'https:')) {
+                this.log(webContentsId).info(`Prevented desktop from navigating to: ${url}`);
+                event.preventDefault();
             }
-
-            if (serverURL && isChannelExportUrl(serverURL, parsedURL)) {
-                return;
-            }
-
-            if (parsedURL.protocol === 'mailto:') {
-                return;
-            }
-
-            // if ((url.includes('infomaniak.com') || url.includes('infomaniak.ch')) && !url.includes('preprod')) {
-            if (url.includes('login')) {
-                log.info('need login');
-                return;
-            }
-
-            log.info(`Prevented desktop from navigating to: ${url}`);
-            const callID = CallsWidgetWindow.callID;
-            if (serverURL && callID && isCallsPopOutURL(serverURL, parsedURL, callID)) {
-                return;
-            }
-
-            this.log(webContentsId).info(`Prevented desktop from navigating to: ${url}`);
-            event.preventDefault();
         };
     };
 
@@ -251,6 +222,7 @@ export class WebContentsEventManager {
                             event.preventDefault();
                         }
                     });
+
                     popup.webContents.on('will-navigate', this.generateWillNavigate(popup.webContents.id));
                     popup.webContents.setWindowOpenHandler(this.denyNewWindow);
                     popup.once('closed', () => {

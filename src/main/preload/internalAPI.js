@@ -98,6 +98,8 @@ import {
     OPEN_NOTIFICATION_PREFERENCES,
     OPEN_WINDOWS_CAMERA_PREFERENCES,
     OPEN_WINDOWS_MICROPHONE_PREFERENCES,
+    OPEN_MACOS_FOCUS_PREFERENCES,
+    GET_MACOS_FOCUS_STATUS_AUTHORIZATION,
     GET_MEDIA_ACCESS_STATUS,
     GET_NONCE,
     IS_DEVELOPER_MODE_ENABLED,
@@ -114,8 +116,11 @@ import {
     SET_URL_FOR_URL_VIEW,
 } from 'common/communication';
 import {IKOrigin} from 'common/config/ikConfig';
+import {initSentryRenderer} from 'common/utils/sentry';
 
 console.log('Preload initialized');
+
+initSentryRenderer();
 
 contextBridge.exposeInMainWorld('process', {
     platform: process.platform,
@@ -211,6 +216,8 @@ contextBridge.exposeInMainWorld('desktop', {
     openNotificationPreferences: () => ipcRenderer.send(OPEN_NOTIFICATION_PREFERENCES),
     openWindowsCameraPreferences: () => ipcRenderer.send(OPEN_WINDOWS_CAMERA_PREFERENCES),
     openWindowsMicrophonePreferences: () => ipcRenderer.send(OPEN_WINDOWS_MICROPHONE_PREFERENCES),
+    openMacOSFocusPreferences: () => ipcRenderer.send(OPEN_MACOS_FOCUS_PREFERENCES),
+    getMacOSFocusStatusAuthorization: () => ipcRenderer.invoke(GET_MACOS_FOCUS_STATUS_AUTHORIZATION),
     getMediaAccessStatus: (mediaType) => ipcRenderer.invoke(GET_MEDIA_ACCESS_STATUS, mediaType),
 
     resetAuth: async () => {

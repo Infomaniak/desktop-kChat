@@ -4,7 +4,6 @@
 import path from 'path';
 import {pathToFileURL} from 'url';
 
-import {init} from '@sentry/electron/main';
 import {app, ipcMain, nativeTheme, net, protocol, session} from 'electron';
 import installExtension, {REACT_DEVELOPER_TOOLS, REDUX_DEVTOOLS} from 'electron-devtools-installer';
 import isDev from 'electron-is-dev';
@@ -63,10 +62,12 @@ import {getDoNotDisturb} from 'main/notifications';
 import parseArgs from 'main/ParseArgs';
 import PerformanceMonitor from 'main/performanceMonitor';
 import permissionsManager from 'main/permissionsManager';
+import {setupAfterAppReady as setupProxyAfterAppReady} from 'main/proxyManager';
 import TokenManager from 'main/tokenManager';
 import Tray from 'main/tray/tray';
 import TrustedOriginsStore from 'main/trustedOrigins';
 import UserActivityMonitor from 'main/UserActivityMonitor';
+import {initSentryMain} from 'main/utils';
 import ViewManager from 'main/views/viewManager';
 import MainWindow from 'main/windows/mainWindow';
 
@@ -86,7 +87,6 @@ import {
     handleDarkModeChange,
     handleGetConfiguration,
     handleGetLocalConfiguration,
-    handleUpdateTheme,
     updateConfiguration,
 } from './config';
 import {
@@ -102,6 +102,7 @@ import {
     getScreenPermissions,
     handleShowSettingsModal,
 } from './intercom';
+import {handleSystemThemeChange} from './theme';
 import {
     clearAppCache,
     getDeeplinkingURL,
@@ -134,9 +135,7 @@ export async function initialize() {
     // initialization that can run before the app is ready
     initializeArgs();
 
-    init({
-        dsn: 'https://bafc5cd5580a437a9bfd407e8d5f69bf@sentry-kchat.infomaniak.com/5',
-    });
+    initSentryMain();
 
     await initializeConfig();
     initializeAppEventListeners();
@@ -279,8 +278,8 @@ function initializeBeforeAppReady() {
     }
 
     if (process.platform === 'darwin' || process.platform === 'win32') {
-        nativeTheme.on('updated', handleUpdateTheme);
-        handleUpdateTheme();
+        nativeTheme.on('updated', handleSystemThemeChange);
+        handleSystemThemeChange();
     }
 
     protocol.registerSchemesAsPrivileged([
@@ -392,8 +391,9 @@ async function initializeAfterAppReady() {
         }
     });
 
-    app.setAppUserModelId('Kchat.Desktop'); // Use explicit AppUserModelID
+    app.setAppUserModelId('com.infomaniak.chat'); // Use explicit AppUserModelID. This must match the 'desktopName' field in package.json for Windows notifications icon to display correctly.
     const defaultSession = session.defaultSession;
+    setupProxyAfterAppReady();
     defaultSession.webRequest.onHeadersReceived({urls: IKLoginAllowedUrls},
         (details, callback) => {
             if (details.url.includes('/token') && details.responseHeaders) {

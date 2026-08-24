@@ -1,7 +1,10 @@
 // Copyright (c) 2016-present Mattermost, Inc. All Rights Reserved.
 // See LICENSE.txt for license information.
+import * as Sentry from '@sentry/electron/renderer';
 import React, {useEffect, useState} from 'react';
 import {useIntl, FormattedMessage} from 'react-intl';
+
+import {t} from 'common/utils/util';
 
 import type {Permissions} from 'types/permissions';
 
@@ -10,13 +13,25 @@ import './PermissionSettings.scss';
 type Permission = {
     name: string; allowed: boolean;
 }
+
+type FocusStatusAuth = 'authorized' | 'denied' | 'not-supported' | 'loading';
+
 export const PermissionSettings = () => {
     const [permissions, setPermissions] = useState<Permission[]>([]);
+    const [focusStatusAuth, setFocusStatusAuth] = useState<FocusStatusAuth>('loading');
 
     useEffect(() => {
         (async () => {
             const perms = await window.desktop.getLocalPermissions();
             setPermissions(convertPermissionDataToState(perms));
+
+            // Check macOS Focus Status authorization
+            if (window.process.platform === 'darwin') {
+                const auth = await window.desktop.getMacOSFocusStatusAuthorization();
+                setFocusStatusAuth(auth);
+            } else {
+                setFocusStatusAuth('not-supported');
+            }
         })();
     }, []);
 
@@ -46,7 +61,7 @@ export const PermissionSettings = () => {
         <div className='PermissionSetting__label'>
             <FormattedMessage
                 id='renderer.components.settingsPage.permissions.label'
-                defaultMessage='Review and update the permissions you’ve set for this app'
+                defaultMessage="Review and update the permissions you've set for this app"
             />
         </div>
         <div className='PermissionSetting__content'>
@@ -59,8 +74,41 @@ export const PermissionSettings = () => {
                 />
             ))}
         </div>
+
+        {/* macOS System Permissions - Focus Status */}
+        {window.process.platform === 'darwin' && focusStatusAuth !== 'not-supported' && (
+            <>
+                <h3 className='PermissionSetting__heading PermissionSetting__heading--system'>
+                    <FormattedMessage
+                        id='renderer.components.settingsPage.permissions.systemTitle'
+                        defaultMessage='System Permissions'
+                    />
+                </h3>
+                <div className='PermissionSetting__label'>
+                    <FormattedMessage
+                        id='renderer.components.settingsPage.permissions.systemLabel'
+                        defaultMessage='These permissions are managed by macOS. Click to open System Settings.'
+                    />
+                </div>
+                <div className='PermissionSetting__content'>
+                    <MacOSFocusStatusPermission
+                        status={focusStatusAuth}
+                        onOpenSettings={() => window.desktop.openMacOSFocusPreferences()}
+                    />
+                </div>
+            </>
+        )}
     </div>);
 };
+
+t('renderer.components.settingsPage.permissions.allowed');
+t('renderer.components.settingsPage.permissions.denied');
+t('renderer.components.settingsPage.permissions.notifications');
+t('renderer.components.settingsPage.permissions.geolocation');
+t('renderer.components.settingsPage.permissions.screenShare');
+t('renderer.components.settingsPage.permissions.microphoneAndCamera');
+t('renderer.components.settingsPage.permissions.openExternal');
+t('renderer.components.settingsPage.permissions.fullscreen');
 
 const PermissionLabelMapping: Record<string, string> = {
     notifications: 'renderer.components.settingsPage.permissions.notifications',
@@ -68,14 +116,19 @@ const PermissionLabelMapping: Record<string, string> = {
     screenShare: 'renderer.components.settingsPage.permissions.screenShare',
     media: 'renderer.components.settingsPage.permissions.microphoneAndCamera',
     openExternal: 'renderer.components.settingsPage.permissions.openExternal',
-
+    fullscreen: 'renderer.components.settingsPage.permissions.fullscreen',
 };
 
 const Permission = ({name, allowed, onReset}: {name: Permission['name']; allowed: Permission['allowed']; onReset: (permission: string) => void}) => {
     const {formatMessage} = useIntl();
+    const labelId = PermissionLabelMapping[name];
+    if (!labelId) {
+        Sentry.captureMessage(`PermissionSettings: unmapped permission name "${name}"`, 'warning');
+        return null;
+    }
     const stateKey = allowed ? 'renderer.components.settingsPage.permissions.allowed' : 'renderer.components.settingsPage.permissions.denied';
     const state = capitalize(formatMessage({id: stateKey}));
-    const label = formatMessage({id: PermissionLabelMapping[name]}, {allowed: state});
+    const label = formatMessage({id: labelId}, {allowed: state});
     return (
         <p className='PermissionSetting__content__perm'>
             <label>{label}</label>
@@ -89,6 +142,56 @@ const Permission = ({name, allowed, onReset}: {name: Permission['name']; allowed
                 />
             </a>
         </p>);
+};
+
+const MacOSFocusStatusPermission = ({status, onOpenSettings}: {status: FocusStatusAuth; onOpenSettings: () => void}) => {
+    const {formatMessage} = useIntl();
+
+    const getStatusLabel = () => {
+        switch (status) {
+        case 'authorized':
+            return formatMessage({
+                id: 'renderer.components.settingsPage.permissions.focusStatus.authorized',
+                defaultMessage: 'Authorized',
+            });
+        case 'denied':
+            return formatMessage({
+                id: 'renderer.components.settingsPage.permissions.focusStatus.denied',
+                defaultMessage: 'Denied',
+            });
+        case 'loading':
+            return formatMessage({
+                id: 'renderer.components.settingsPage.permissions.focusStatus.loading',
+                defaultMessage: 'Checking...',
+            });
+        default:
+            return '';
+        }
+    };
+
+    return (
+        <p className='PermissionSetting__content__perm'>
+            <label>
+                <FormattedMessage
+                    id='renderer.components.settingsPage.permissions.focusStatus.label'
+                    defaultMessage='Focus Status: {status}'
+                    values={{status: getStatusLabel()}}
+                />
+            </label>
+            <a
+                href='#'
+                onClick={(e) => {
+                    e.preventDefault();
+                    onOpenSettings();
+                }}
+            >
+                <FormattedMessage
+                    id='renderer.components.settingsPage.permissions.focusStatus.openSettings'
+                    defaultMessage='Open Settings'
+                />
+            </a>
+        </p>
+    );
 };
 
 function capitalize(str: string) {

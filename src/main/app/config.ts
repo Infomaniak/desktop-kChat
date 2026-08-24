@@ -1,7 +1,7 @@
 // Copyright (c) 2016-present Mattermost, Inc. All Rights Reserved.
 // See LICENSE.txt for license information.
 
-import {app, ipcMain, nativeTheme} from 'electron';
+import {app, ipcMain} from 'electron';
 
 import {DARK_MODE_CHANGE, EMIT_CONFIGURATION, RELOAD_CONFIGURATION} from 'common/communication';
 import Config from 'common/config';
@@ -10,6 +10,7 @@ import AutoLauncher from 'main/AutoLauncher';
 import {setUnreadBadgeSetting} from 'main/badge';
 import Tray from 'main/tray/tray';
 import LoadingScreen from 'main/views/loadingScreen';
+import viewManager from 'main/views/viewManager';
 import MainWindow from 'main/windows/mainWindow';
 
 import type {CombinedConfig, Config as ConfigType} from 'types/config';
@@ -50,12 +51,6 @@ export function updateConfiguration(event: Electron.IpcMainEvent | null, propert
         }, {} as Partial<ConfigType>);
         Config.setMultiple(newData);
     }
-}
-
-export function handleUpdateTheme() {
-    log.debug('Config.handleUpdateTheme');
-
-    Config.set('darkMode', nativeTheme.shouldUseDarkColors);
 }
 
 export function handleConfigUpdate(newConfig: CombinedConfig) {
@@ -113,6 +108,7 @@ export function handleDarkModeChange(darkMode: boolean) {
     Tray.refreshImages(Config.trayIconTheme);
     MainWindow.sendToRenderer(DARK_MODE_CHANGE, darkMode);
     LoadingScreen.setDarkMode(darkMode);
+    viewManager.setDarkMode(darkMode);
 
     ipcMain.emit(EMIT_CONFIGURATION, true, Config.data);
 }

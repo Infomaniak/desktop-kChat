@@ -15,11 +15,71 @@ export class UserActivityMonitor extends EventEmitter {
     isActive: boolean;
     idleTime: number;
     lastSetActive?: number;
-    systemIdleTimeIntervalID: number;
+    systemIdleTimeIntervalID?: ReturnType<typeof setInterval>;
+    private resumeGracePeriodId?: ReturnType<typeof setTimeout>;
+    private systemForcedInactive: boolean;
     config: {
         updateFrequencyMs: number;
         inactiveThresholdMs: number;
         statusUpdateThresholdMs: number;
+    };
+
+    private startIdlePolling() {
+        if (this.systemIdleTimeIntervalID) {
+            return;
+        }
+        this.systemIdleTimeIntervalID = setInterval(() => {
+            try {
+                this.updateIdleTime(powerMonitor.getSystemIdleTime());
+            } catch (err) {
+                log.error('Error getting system idle time:', err);
+            }
+        }, this.config.updateFrequencyMs);
+    }
+
+    private stopIdlePolling() {
+        if (this.systemIdleTimeIntervalID) {
+            clearInterval(this.systemIdleTimeIntervalID);
+            this.systemIdleTimeIntervalID = undefined;
+        }
+    }
+
+    private handleUnlockScreen = () => {
+        if (this.resumeGracePeriodId) {
+            clearTimeout(this.resumeGracePeriodId);
+            this.resumeGracePeriodId = undefined;
+        }
+        this.systemForcedInactive = false;
+        delete this.lastSetActive;
+        this.startIdlePolling();
+    };
+
+    private handleResume = () => {
+        this.startIdlePolling();
+
+        // After a grace period, clear the forced-inactive flag so systems
+        // without a lock screen can transition back to online normally (Linux)
+        if (this.resumeGracePeriodId) {
+            clearTimeout(this.resumeGracePeriodId);
+            this.resumeGracePeriodId = undefined;
+        }
+
+        this.resumeGracePeriodId = setTimeout(() => {
+            this.systemForcedInactive = false;
+            delete this.lastSetActive;
+            this.resumeGracePeriodId = undefined;
+        }, 5000);
+    };
+
+    private handleSystemInactive = () => {
+        if (this.resumeGracePeriodId) {
+            clearTimeout(this.resumeGracePeriodId);
+            this.resumeGracePeriodId = undefined;
+        }
+        this.stopIdlePolling();
+        this.systemForcedInactive = true;
+        delete this.lastSetActive;
+        this.setActivityState(false, true);
     };
 
     constructor() {
@@ -27,11 +87,12 @@ export class UserActivityMonitor extends EventEmitter {
 
         this.isActive = true;
         this.idleTime = 0;
-        this.systemIdleTimeIntervalID = -1;
+        this.systemForcedInactive = false;
 
         this.config = {
             updateFrequencyMs: 1 * 1000, // eslint-disable-line no-magic-numbers
-            inactiveThresholdMs: 60 * 1000, // eslint-disable-line no-magic-numbers
+            // 5 minutes — keep in sync with the backend away timeout
+            inactiveThresholdMs: 5 * 60 * 1000, // eslint-disable-line no-magic-numbers
             statusUpdateThresholdMs: 60 * 1000, // eslint-disable-line no-magic-numbers
         };
     }
@@ -60,29 +121,37 @@ export class UserActivityMonitor extends EventEmitter {
             return;
         }
 
-        if (this.systemIdleTimeIntervalID >= 0) {
+        if (this.systemIdleTimeIntervalID) {
             this.emit('error', new Error('User activity monitoring is already in progress'));
             return;
         }
 
         this.config = Object.assign({}, this.config, config);
 
-        // Node typings don't map Timeout to number, but then clearInterval requires a number?
-        this.systemIdleTimeIntervalID = setInterval(() => {
-            try {
-                this.updateIdleTime(powerMonitor.getSystemIdleTime());
-            } catch (err) {
-                log.error('Error getting system idle time:', err);
-            }
-        }, this.config.updateFrequencyMs) as unknown as number;
+        powerMonitor.on('suspend', this.handleSystemInactive);
+        powerMonitor.on('resume', this.handleResume);
+
+        // only macOS Windows
+        // https://www.electronjs.org/docs/latest/api/power-monitor
+        powerMonitor.on('lock-screen', this.handleSystemInactive);
+        powerMonitor.on('unlock-screen', this.handleUnlockScreen);
+
+        this.startIdlePolling();
     }
 
     /**
    * Stop monitoring system events and idle time
    */
     stopMonitoring() {
-        clearInterval(this.systemIdleTimeIntervalID);
-        this.systemIdleTimeIntervalID = -1;
+        if (this.resumeGracePeriodId) {
+            clearTimeout(this.resumeGracePeriodId);
+            this.resumeGracePeriodId = undefined;
+        }
+        this.stopIdlePolling();
+        powerMonitor.off('suspend', this.handleSystemInactive);
+        powerMonitor.off('resume', this.handleResume);
+        powerMonitor.off('lock-screen', this.handleSystemInactive);
+        powerMonitor.off('unlock-screen', this.handleUnlockScreen);
     }
 
     /**
@@ -108,6 +177,10 @@ export class UserActivityMonitor extends EventEmitter {
    * @private
    */
     setActivityState(isActive = false, isSystemEvent = false) {
+        if (!isSystemEvent && isActive && this.systemForcedInactive) {
+            return;
+        }
+
         this.isActive = isActive;
 
         if (isSystemEvent) {
@@ -120,7 +193,8 @@ export class UserActivityMonitor extends EventEmitter {
         if (isActive && (this.lastSetActive == null || now - this.lastSetActive >= this.config.statusUpdateThresholdMs)) {
             this.sendStatusUpdate(false);
             this.lastSetActive = now;
-        } else if (!isActive) {
+        } else if (!isActive && this.lastSetActive != null) {
+            this.sendStatusUpdate(false);
             delete this.lastSetActive;
         }
     }

@@ -2,8 +2,14 @@
 
 set -e
 
-STABLE_VERSION=$(./node_modules/.bin/semver $(jq -r .version package.json) -c)
-BUILD_VERSION=$(jq -r .version package.json | sed "s/$STABLE_VERSION-.*\.//g")
+VERSION_BASE="$(jq -r .version package.json)"
+
+if [ "${GITHUB_REF_NAME:-}" != "" ]; then
+    VERSION_BASE="${GITHUB_REF_NAME}"
+fi
+
+STABLE_VERSION=$(./node_modules/.bin/semver "$VERSION_BASE" -c)
+BUILD_VERSION=$(echo "$VERSION_BASE" | sed "s/$STABLE_VERSION-.*\.//g")
 
 if [ "$BUILD_VERSION" == "" ]; then
     BUILD_VERSION=$STABLE_VERSION
@@ -16,3 +22,4 @@ fi
 temp_file="$(mktemp -t electron-builder.json)"
 jq -r --arg version "$STABLE_VERSION" '.mac.bundleShortVersion = $version' electron-builder.json > "${temp_file}" && mv "${temp_file}" electron-builder.json
 jq -r --arg version "$BUILD_VERSION" '.mac.bundleVersion = $version' electron-builder.json > "${temp_file}" && mv "${temp_file}" electron-builder.json
+jq -r --arg version "$VERSION_BASE" '.extraMetadata.version = $version' electron-builder.json > "${temp_file}" && mv "${temp_file}" electron-builder.json

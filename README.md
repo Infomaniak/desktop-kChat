@@ -55,3 +55,25 @@ Installation finished, setup env.
 5 - Now, you can use the terminal from VSCode if needed.
 
 6 - Setup SSH key, pull repo, and run app.
+
+## Proxy (mitmproxy)
+
+Pour debugguer le trafic réseau avec un proxy interceptant comme [mitmproxy](https://mitmproxy.org/), il suffit de définir la variable d'environnement `MM_PROXY` :
+
+```shell
+MM_PROXY=http://127.0.0.1:8080 npm start
+```
+
+Quand `MM_PROXY` est défini, l'app configure automatiquement le proxy sur toutes les sessions Electron et ignore les erreurs de certificat TLS (nécessaire car mitmproxy utilise sa propre CA).
+
+Pour ignorer les erreurs de certificat sans proxy, utiliser `MM_IGNORE_CERT_ERRORS` :
+
+```shell
+MM_IGNORE_CERT_ERRORS=true npm start
+```
+
+> **Note :** Uniquement actif en mode développement (`electron-is-dev`). Les builds de production ignorent ces variables.
+
+## Certificates
+
+For MacOS certificates, see the internal gitlab wiki
