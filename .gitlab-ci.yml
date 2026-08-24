@@ -35,8 +35,7 @@ cache:
 
 install:
   stage: setup
-  before_script:
-    - apt-get update && apt-get install -y libxtst6 libxtst-dev libx11-dev libxkbfile-dev
+  extends: .system-deps
   cache:
     key:
       files:

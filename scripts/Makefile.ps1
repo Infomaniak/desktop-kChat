@@ -527,7 +527,6 @@ function Run-BuildElectronNsis {
     Print-Info "Building nodejs/electron code (running npm run build)..."
     npm run build
     Print-Info "Packaging nodejs/electron for Windows NSIS (running npm run package:windows-nsis)..."
-    # NSIS has the upgrade flag enabled, so it must be done first
     npm run package:windows-nsis -- --publish always
 }
 
@@ -670,7 +669,6 @@ function Run-BuildNsis {
 function Run-BuildMsi {
     Check-Deps -Verbose -Throwable
     Prepare-Path
-    Write-AWSCredentials
     # Get-Cert
     Run-BuildId
     Run-BuildElectronMsi
