@@ -123,22 +123,16 @@ jobs:
                   choco install yq --version 4.15.1 -y
                   npm i -g node-gyp
                   node-gyp install
-                  node-gyp install --devdir="C:\Users\runneradmin\.electron-gyp" --target=$(jq -r .devDependencies.electron package.json) --dist-url="https://electronjs.org/headers"
-                  node-gyp install --devdir="C:\Users\runneradmin\.electron-gyp" --target=$(jq -r .devDependencies.electron package.json) --dist-url="https://electronjs.org/headers" --arch arm64
-                  node-gyp install --devdir="C:\Users\runneradmin\.electron-gyp" --target=$(jq -r .devDependencies.electron package.json) --dist-url="https://electronjs.org/headers" --arch ia32
+                  node-gyp install --devdir="$env:USERPROFILE\.electron-gyp" --target=$(jq -r .devDependencies.electron package.json) --dist-url="https://electronjs.org/headers"
+                  node-gyp install --devdir="$env:USERPROFILE\.electron-gyp" --target=$(jq -r .devDependencies.electron package.json) --dist-url="https://electronjs.org/headers" --arch arm64
+                  node-gyp install --devdir="$env:USERPROFILE\.electron-gyp" --target=$(jq -r .devDependencies.electron package.json) --dist-url="https://electronjs.org/headers" --arch ia32
                   npm ci --openssl_fips=''
             - name: release/update-version
               uses: ./.github/actions/version
-            # - name: release/test
-            #   uses: ./.github/actions/test
-            - name: release/build
+            - name: release/build-nsis
               shell: powershell
               env:
                   MM_WIN_INSTALLERS: 1
-                  # PFX_KEY: ${{ secrets.MM_DESKTOP_MSI_INSTALLER_PFX_KEY }}
-                  # CSC_KEY_PASSWORD: ${{ secrets.MM_DESKTOP_MSI_INSTALLER_CSC_KEY_PASSWORD }}
-                  # PFX: ${{ secrets.MM_DESKTOP_MSI_INSTALLER_PFX }}
-                  # CSC_LINK: ${{ secrets.MM_DESKTOP_MSI_INSTALLER_CSC_LINK }}
                   SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
                   SENTRY_RELEASE: ${{ github.ref_name }}
                   AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -153,11 +147,34 @@ jobs:
                   SM_CLIENT_CERT_FILE: ${{ secrets.SM_CLIENT_CERT_FILE }}
               run: |
                   ./scripts/setup-keylocker.ps1
-                  ./scripts/Makefile.ps1 build
-            - name: release/package
+                  ./scripts/Makefile.ps1 build-nsis
+            - name: release/package-nsis
               run: |
                 mkdir -p ./build/win-release
                 bash -x ./scripts/cp_artifacts.sh release ./build/win-release
+            - name: release/clean-release
+              shell: powershell
+              run: Remove-Item release\* -Recurse -Force
+            - name: release/build-msi
+              shell: powershell
+              env:
+                  MM_WIN_INSTALLERS: 1
+                  SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+                  SENTRY_RELEASE: ${{ github.ref_name }}
+                  SM_API_KEY: ${{ secrets.SM_API_KEY }}
+                  SM_CLIENT_CERT_FILE_B64: ${{ secrets.SM_CLIENT_CERT_FILE_B64 }}
+                  SM_CLIENT_CERT_PASSWORD: ${{ secrets.SM_CLIENT_CERT_PASSWORD }}
+                  SM_HOST: ${{ secrets.SM_HOST }}
+                  SM_CODE_SIGNING_CERT_SHA1_HASH: ${{ secrets.SM_CODE_SIGNING_CERT_SHA1_HASH }}
+                  SM_KEYPAIR_ALIAS: ${{ secrets.SM_KEYPAIR_ALIAS }}
+                  SM_TOOLS_URI: ${{ secrets.SM_TOOLS_URI }}
+                  SM_CLIENT_CERT_FILE: ${{ secrets.SM_CLIENT_CERT_FILE }}
+              run: |
+                  ./scripts/Makefile.ps1 build-msi
+            - name: release/package-msi
+              run: |
+                mkdir -p ./build/win-msi
+                bash -x ./scripts/cp_artifacts.sh release ./build/win-msi
             - name: release/upload-build
               uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3 # v4.3.1
               with:
@@ -187,7 +204,7 @@ jobs:
           # find ./build/{macos-release,win-release,linux} -type f -exec cp --backup=numbered -t ./ghr-dist {} +
           run: |
             mkdir -p ./ghr-dist
-            find ./build/{win-release,linux,linux-arm} -type f -exec cp --backup=numbered -t ./ghr-dist {} +
+            find ./build/{win-release,win-msi,linux,linux-arm} -type f -exec cp --backup=numbered -t ./ghr-dist {} +
 
         - name: release/publish-release
           env:

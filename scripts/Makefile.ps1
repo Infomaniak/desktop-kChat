@@ -523,16 +523,19 @@ function InstallDeps-Electron {
     npm ci
 }
 
-function Run-BuildElectron {
-    #npm install --prefix="$(Get-RootDir)" "$(Get-RootDir)"
+function Run-BuildElectronNsis {
     Print-Info "Building nodejs/electron code (running npm run build)..."
     npm run build
-    #npm run build --prefix="$(Get-RootDir)" "$(Get-RootDir)"
-    Print-Info "Packaging nodejs/electron for Windows (running npm run package:windows)..."
-    # NSIS has the upgrade flag enabled, so it must be done first
+    Print-Info "Packaging nodejs/electron for Windows NSIS (running npm run package:windows-nsis)..."
     npm run package:windows-nsis -- --publish always
-    # npm run package:windows
-    #npm run package:windows --prefix="$(Get-RootDir)" "$(Get-RootDir)"
+}
+
+function Run-BuildElectronMsi {
+    Print-Info "Building nodejs/electron code (running npm run build)..."
+    npm run build
+
+    Print-Info "Packaging nodejs/electron for Windows MSI (running npm run package:windows-msi)..."
+    npm run package:windows-msi
 }
 
 function Run-BuildForceSignature {
@@ -634,44 +637,6 @@ function Run-BuildLicense {
     $sw.Close();
 }
 
-function Run-BuildMsi {
-    Print-Info "Building 32 bits msi installer..."
-    heat.exe dir "release\win-ia32-unpacked\" -o "scripts\msi_installer_files.wxs" -scom -frag -srd -sreg -gg -cg MattermostDesktopFiles -t "scripts\msi_installer_files_replace_id.xslt" -dr INSTALLDIR
-    candle.exe -dPlatform=x86 "scripts\msi_installer.wxs" "scripts\msi_installer_files.wxs" -o "scripts\"
-    light.exe "scripts\msi_installer.wixobj" "scripts\msi_installer_files.wixobj" -loc "resources\windows\msi_i18n\en_US.wxl" -o "release\kchat-desktop-$($env:COM_MATTERMOST_MAKEFILE_BUILD_ID)-x86.msi" -b "release\win-ia32-unpacked\"
-
-    Print-Info "Building 64 bits msi installer..."
-    heat.exe dir "release\win-unpacked\" -o "scripts\msi_installer_files.wxs" -scom -frag -srd -sreg -gg -cg MattermostDesktopFiles -t "scripts\msi_installer_files_replace_id.xslt" -t "scripts\msi_installer_files_set_win64.xslt" -dr INSTALLDIR
-    candle.exe -dPlatform=x64 "scripts\msi_installer.wxs" "scripts\msi_installer_files.wxs" -o "scripts\"
-    light.exe "scripts\msi_installer.wixobj" "scripts\msi_installer_files.wixobj" -loc "resources\windows\msi_i18n\en_US.wxl" -o "release\kchat-desktop-$($env:COM_MATTERMOST_MAKEFILE_BUILD_ID)-x64.msi" -b "release\win-unpacked\"
-
-    # Only sign the executable and .dll if this is a release and not a pull request
-    # check.
-    # if (Test-Path 'env:PFXOLD') {
-    #     Print-Info "Signing kchat-desktop-$($env:COM_MATTERMOST_MAKEFILE_BUILD_ID)-x86.msi (waiting for 15 seconds)..."
-    #     Start-Sleep -s 15
-    #     # Dual signing is not supported on msi files. Is it recommended to sign with 256 hash.
-    #     # src.: https://security.stackexchange.com/a/124685/84134
-    #     # src.: https://social.msdn.microsoft.com/Forums/windowsdesktop/en-us/d4b70ecd-a883-4289-8047-cc9cde28b492#0b3e3b80-6b3b-463f-ac1e-1bf0dc831952
-    #     signtool.exe sign /f "./kchat-desktop-windows.pfx" /p "$env:PFX_KEY" /tr "http://timestamp.digicert.com" /fd sha256 /td sha256 /d "release\kchat-desktop-$($env:COM_MATTERMOST_MAKEFILE_BUILD_ID)-x86.msi" "release\kchat-desktop-$($env:COM_MATTERMOST_MAKEFILE_BUILD_ID)-x86.msi"
-
-    #     Print-Info "Signing kchat-desktop-$($env:COM_MATTERMOST_MAKEFILE_BUILD_ID)-x64.msi (waiting for 15 seconds)..."
-    #     Start-Sleep -s 15
-    #     signtool.exe sign /f "./kchat-desktop-windows.pfx" /p "$env:PFX_KEY" /tr "http://timestamp.digicert.com" /fd sha256 /td sha256 /d "release\kchat-desktop-$($env:COM_MATTERMOST_MAKEFILE_BUILD_ID)-x64.msi" "release\kchat-desktop-$($env:COM_MATTERMOST_MAKEFILE_BUILD_ID)-x64.msi"
-    # } else {
-    #     Print-Info "Certificate file not found, the msi installers won't be signed."
-    # }
-
-    # WORKING BUT NEEDS TO SIGN VIA ELECTRON BUILDER
-    # $smctl = "C:\Program Files\DigiCert\DigiCert One Signing Manager Tools/smctl.exe"
-
-    # & "$smctl" sign --input="release\kchat-desktop-$($env:COM_MATTERMOST_MAKEFILE_BUILD_ID)-x86.msi" --keypair-alias="${env:SM_KEYPAIR_ALIAS}" --verbose
-
-    # $smctl = "C:\Program Files\DigiCert\DigiCert One Signing Manager Tools/smctl.exe"
-
-    # & "$smctl" sign --input="release\kchat-desktop-$($env:COM_MATTERMOST_MAKEFILE_BUILD_ID)-x64.msi" --keypair-alias="${env:SM_KEYPAIR_ALIAS}" --verbose
-}
-
 function Get-Cert {
     if (Test-Path 'env:PFXOLD') {
         Print-Info "Getting windows certificate"
@@ -691,16 +656,22 @@ function Remove-Cert {
     }
 }
 
-function Run-Build {
+function Run-BuildNsis {
     Check-Deps -Verbose -Throwable
     Prepare-Path
     Write-AWSCredentials
     # Get-Cert
     Run-BuildId
-    Run-BuildElectron
-    # Run-BuildForceSignature
-    # Run-BuildLicense
-    # Run-BuildMsi
+    Run-BuildElectronNsis
+    Remove-Cert
+}
+
+function Run-BuildMsi {
+    Check-Deps -Verbose -Throwable
+    Prepare-Path
+    # Get-Cert
+    Run-BuildId
+    Run-BuildElectronMsi
     Remove-Cert
 }
 
@@ -753,11 +724,16 @@ function Main {
         switch ($makeRule.toLower()) {
             "all" {
                 Install-Deps
-                Run-Build
+                Run-BuildNsis
+                Run-BuildMsi
             }
-            "build" {
+            "build-nsis" {
                 Install-Deps
-                Run-Build
+                Run-BuildNsis
+            }
+            "build-msi" {
+                Install-Deps
+                Run-BuildMsi
             }
             "test" {
                 Install-Deps
