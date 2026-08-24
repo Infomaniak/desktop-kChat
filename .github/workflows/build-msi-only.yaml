@@ -1,0 +1,82 @@
+name: build-msi-only
+
+on:
+    workflow_dispatch:
+        inputs:
+            version:
+                description: "Version to build (e.g. 3.5.0)"
+                required: true
+                type: string
+            release_tag:
+                description: "GitHub release tag to upload MSI assets to (leave empty to skip)"
+                required: false
+                type: string
+
+jobs:
+    build-msi:
+        runs-on: windows-2022
+        steps:
+            - name: checkout-repo
+              uses: actions/checkout@v3
+            - name: setup-node
+              uses: actions/setup-node@v3
+              with:
+                  node-version: "18.15.0"
+            - name: set-version
+              shell: powershell
+              run: |
+                  $version = "${{ inputs.version }}"
+                  $pkg = Get-Content package.json -Raw | ConvertFrom-Json
+                  $pkg.version = $version
+                  $pkg | ConvertTo-Json -Depth 100 | Set-Content package.json -Encoding utf8
+            - name: optimize
+              shell: powershell
+              run: ./scripts/Makefile.ps1 optimize
+            - name: install-deps
+              env:
+                  NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+              shell: powershell
+              run: |
+                  ./scripts/Makefile.ps1 install-deps
+                  choco install yq --version 4.15.1 -y
+                  npm i -g node-gyp
+                  node-gyp install
+                  node-gyp install --devdir="$env:USERPROFILE\.electron-gyp" --target=$(jq -r .devDependencies.electron package.json) --dist-url="https://electronjs.org/headers"
+                  node-gyp install --devdir="$env:USERPROFILE\.electron-gyp" --target=$(jq -r .devDependencies.electron package.json) --dist-url="https://electronjs.org/headers" --arch arm64
+                  node-gyp install --devdir="$env:USERPROFILE\.electron-gyp" --target=$(jq -r .devDependencies.electron package.json) --dist-url="https://electronjs.org/headers" --arch ia32
+                  npm ci --openssl_fips=''
+            - name: build-msi
+              shell: powershell
+              env:
+                  MM_WIN_INSTALLERS: 1
+                  SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+                  SENTRY_RELEASE: ${{ inputs.version }}
+                  SM_API_KEY: ${{ secrets.SM_API_KEY }}
+                  SM_CLIENT_CERT_FILE_B64: ${{ secrets.SM_CLIENT_CERT_FILE_B64 }}
+                  SM_CLIENT_CERT_PASSWORD: ${{ secrets.SM_CLIENT_CERT_PASSWORD }}
+                  SM_HOST: ${{ secrets.SM_HOST }}
+                  SM_CODE_SIGNING_CERT_SHA1_HASH: ${{ secrets.SM_CODE_SIGNING_CERT_SHA1_HASH }}
+                  SM_KEYPAIR_ALIAS: ${{ secrets.SM_KEYPAIR_ALIAS }}
+                  SM_TOOLS_URI: ${{ secrets.SM_TOOLS_URI }}
+                  SM_CLIENT_CERT_FILE: ${{ secrets.SM_CLIENT_CERT_FILE }}
+              run: |
+                  ./scripts/setup-keylocker.ps1
+                  ./scripts/Makefile.ps1 build-msi
+            - name: package-msi
+              run: |
+                mkdir -p ./build/win-msi
+                bash -x ./scripts/cp_artifacts.sh release ./build/win-msi
+            - name: upload-artifact
+              uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3 # v4.3.1
+              with:
+                name: msi-${{ inputs.version }}
+                path: ./build
+                compression-level: 0
+                retention-days: 14
+            - name: upload-to-release
+              if: ${{ inputs.release_tag != '' }}
+              env:
+                  GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+              shell: bash
+              run: |
+                  find ./build/win-msi -name "*.msi" -exec gh release upload "${{ inputs.release_tag }}" {} +
