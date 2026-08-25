@@ -55,6 +55,20 @@ exports.default = async function afterPack(context) {
             context.targets.forEach(fixSetuid(context));
         }
 
+        // MSI installer: remove app-update.yml to disable auto-update
+        const isMsiTarget = context.targets.some((target) => target.name.toLowerCase() === 'msi');
+        if (context.electronPlatformName === 'win32' && isMsiTarget) {
+            const appUpdatePath = path.join(context.appOutDir, 'resources', 'app-update.yml');
+            try {
+                await fs.unlink(appUpdatePath);
+                console.log(`Removed ${appUpdatePath} for MSI target`);
+            } catch (err) {
+                if (err.code !== 'ENOENT') {
+                    throw err;
+                }
+            }
+        }
+
         // macOS needs to add the Assets.car containing the Liquid Glass icon
         if (process.platform === 'darwin') {
             await copyAssetsCar(context.appOutDir).

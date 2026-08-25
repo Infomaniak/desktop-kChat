@@ -194,7 +194,8 @@
   },
   "msi": {
     "artifactName": "${name}-${version}-${arch}.${ext}",
-    "perMachine": true
+    "perMachine": true,
+    "additionalWixArgs": ["-ext", "WixUtilExtension"]
   },
   "rpm": {
     "fpm": ["--rpm-rpmbuild-define", "_build_id_links none", "--rpm-digest=sha256"]

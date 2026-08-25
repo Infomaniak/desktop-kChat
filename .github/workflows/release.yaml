@@ -125,7 +125,6 @@ jobs:
                   node-gyp install
                   node-gyp install --devdir="$env:USERPROFILE\.electron-gyp" --target=$(jq -r .devDependencies.electron package.json) --dist-url="https://electronjs.org/headers"
                   node-gyp install --devdir="$env:USERPROFILE\.electron-gyp" --target=$(jq -r .devDependencies.electron package.json) --dist-url="https://electronjs.org/headers" --arch arm64
-                  node-gyp install --devdir="$env:USERPROFILE\.electron-gyp" --target=$(jq -r .devDependencies.electron package.json) --dist-url="https://electronjs.org/headers" --arch ia32
                   npm ci --openssl_fips=''
             - name: release/update-version
               uses: ./.github/actions/version
@@ -154,7 +153,7 @@ jobs:
                 bash -x ./scripts/cp_artifacts.sh release ./build/win-release
             - name: release/clean-release
               shell: powershell
-              run: Remove-Item release\* -Recurse -Force
+              run: Remove-Item release\* -Recurse -Force -ErrorAction SilentlyContinue
             - name: release/build-msi
               shell: powershell
               env:
@@ -204,7 +203,7 @@ jobs:
           # find ./build/{macos-release,win-release,linux} -type f -exec cp --backup=numbered -t ./ghr-dist {} +
           run: |
             mkdir -p ./ghr-dist
-            find ./build/{win-release,win-msi,linux,linux-arm} -type f -exec cp --backup=numbered -t ./ghr-dist {} +
+            find ./build/win-release ./build/win-msi ./build/linux ./build/linux-arm -type f -exec cp --backup=numbered -t ./ghr-dist {} +
 
         - name: release/publish-release
           env:

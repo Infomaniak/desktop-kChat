@@ -519,7 +519,6 @@ function InstallDeps-Electron {
     node-gyp install
     node-gyp install --devdir="$env:USERPROFILE\.electron-gyp" --target=$(jq -r .devDependencies.electron package.json) --dist-url="https://electronjs.org/headers"
     node-gyp install --devdir="$env:USERPROFILE\.electron-gyp" --target=$(jq -r .devDependencies.electron package.json) --dist-url="https://electronjs.org/headers" --arch arm64
-    node-gyp install --devdir="$env:USERPROFILE\.electron-gyp" --target=$(jq -r .devDependencies.electron package.json) --dist-url="https://electronjs.org/headers" --arch ia32
     npm ci
 }
 
@@ -531,110 +530,8 @@ function Run-BuildElectronNsis {
 }
 
 function Run-BuildElectronMsi {
-    Print-Info "Building nodejs/electron code (running npm run build)..."
-    npm run build
-
     Print-Info "Packaging nodejs/electron for Windows MSI (running npm run package:windows-msi)..."
     npm run package:windows-msi
-}
-
-function Run-BuildForceSignature {
-    # Only sign the executable and .dll if this is a release and not a pull request check.
-    # if ($env:SM_KEYPAIR_NAME -ne $null -and $env:SM_KEYPAIR_NAME -ne '') {
-    #     Print-Info "Signing"
-    #     foreach ($archPath in "release\win-unpacked", "release\win-ia32-unpacked") {
-    #         Get-ChildItem -Path $archPath -recurse "*.dll" | ForEach-Object {
-    #             Print-Info "Signing $($_.Name) (waiting for 2 * 15 seconds)..."
-    #             Start-Sleep -s 15
-    #             signtool.exe sign /kc "$env:SM_KEYPAIR_NAME" /kcsp "DigiCert Signing Manager KSP" /tr "http://timestamp.digicert.com" /fd sha1 /td sha1 "$($_.FullName)"
-    #             Start-Sleep -s 15
-    #             signtool.exe sign /kc "$env:SM_KEYPAIR_NAME" /kcsp "DigiCert Signing Manager KSP" /tr "http://timestamp.digicert.com" /fd sha256 /td sha256 /as "$($_.FullName)"
-    #         }
-
-    #         Print-Info "Signing app.exe (waiting for 2 * 15 seconds)..."
-    #         Start-Sleep -s 15
-    #         signtool.exe sign /kc "$env:SM_KEYPAIR_NAME" /kcsp "DigiCert Signing Manager KSP" /tr "http://timestamp.digicert.com" /fd sha1 /td sha1 "$archPath\app.exe"
-    #         Start-Sleep -s 15
-    #         signtool.exe sign /kc "$env:SM_KEYPAIR_NAME" /kcsp "DigiCert Signing Manager KSP" /tr "http://timestamp.digicert.com" /fd sha256 /td sha256 /as "$archPath\app.exe"
-    #     }
-    # } else {
-    #     Print-Info "Key pair name not found, DLLs and executable won't be signed."
-    # }
-
-    # Set the path
-    # $env:Path = @(
-    #     [System.Environment]::GetEnvironmentVariable('Path', 'Machine'),
-    #     [System.Environment]::GetEnvironmentVariable('Path', 'User'),
-    #     $SignToolDir
-    # ) -join ';'
-
-    # Get the smctl.exe executable
-    foreach ($archPath in "release\win-unpacked", "release\win-ia32-unpacked") {
-        Get-ChildItem -Path $archPath -recurse "*.dll" | ForEach-Object {
-            Print-Info "Signing $($_.Name)"
-            $smctl = "C:\Program Files\DigiCert\DigiCert One Signing Manager Tools/smctl.exe"
-
-            & "$smctl" sign --input="$($_.FullName)" --keypair-alias="${env:SM_KEYPAIR_ALIAS}" --verbose
-        }
-
-        Print-Info "Signing kchat.exe"
-        $smctl = "C:\Program Files\DigiCert\DigiCert One Signing Manager Tools/smctl.exe"
-
-        & "$smctl" sign --input="$archPath\kchat.exe" --keypair-alias="${env:SM_KEYPAIR_ALIAS}" --verbose
-    }
-}
-
-
-function Run-BuildLicense {
-
-    # Convert license to RTF
-    $licenseTxtFile = "LICENSE.txt";
-    $licenseRtfFile = "resources/windows/license.rtf";
-    $licenseNewParagraph = "\par" + [Environment]::NewLine;
-    $sw = [System.IO.File]::CreateText($licenseRtfFile);
-    $sw.WriteLine("{\rtf1\ansi\deff0\nouicompat{\fonttbl{\f0\fnil\fcharset0 Courier New;}}\pard\qj\f0\fs18");
-    $lineToAdd = "";
-    $gapDetected = 0;
-    # We are relying on introspected C#/.NET rather than the buggy Get-Content
-    # cmdlet because Get-Content considers by default a `-Delimiter` to '\n'
-    # and thus breaks the purpose of the parser.
-    foreach ($line in [System.IO.File]::ReadLines($licenseTxtFile)) {
-        # trim() is equivalent to .replace("\ \s+", "")
-        # We replace one backslash by two. Since the first arg is a regex,
-        # we need to escape it.
-        # src.: https://stackoverflow.com/a/31324570/3514658
-        $sanitizedLine = $line.trim().replace("\\", "\\").replace("{", "\{").replace("}", "\}");
-        # Print previous string gathered if gap detected.
-        if ([string]::IsNullOrEmpty($sanitizedLine)) {
-            $gapDetected++;
-            # For first line keep paragraph definition from document head.
-            if ($gapDetected -eq 1) {
-                $sw.Write($lineToAdd);
-            } elseif ($gapDetected -eq 2) {
-                $sw.Write($licenseNewParagraph + $lineToAdd);
-            } else {
-                $sw.Write($licenseNewParagraph + $lineToAdd + $licenseNewParagraph);
-            }
-            $lineToAdd = "";
-            continue;
-        }
-        # Keep carriage return for first two blocks comprising Copyright and
-        # license name statements.
-        if ($gapDetected -lt 3) {
-            $lineToAdd += $sanitizedLine + $licenseNewParagraph;
-            continue;
-        }
-        # Do not add heading space if the line begins a new paragraph.
-        if ($lineToAdd -eq "") {
-            $lineToAdd += $sanitizedLine;
-            continue;
-        }
-        $lineToAdd += " " + $sanitizedLine;
-    }
-    if ($lineToAdd -ne "") {
-        $sw.Write([Environment]::NewLine + $licenseNewParagraph + $lineToAdd + "\par");
-    }
-    $sw.Close();
 }
 
 function Get-Cert {
@@ -669,7 +566,6 @@ function Run-BuildNsis {
 function Run-BuildMsi {
     Check-Deps -Verbose -Throwable
     Prepare-Path
-    # Get-Cert
     Run-BuildId
     Run-BuildElectronMsi
     Remove-Cert
