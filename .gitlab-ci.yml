@@ -45,7 +45,13 @@ install:
       - .npm/
     policy: pull-push
   script:
-    - npm ci --prefer-offline --no-audit
+    - |
+      if [ -f node_modules/.ci-package-lock.json ] && diff -q node_modules/.ci-package-lock.json package-lock.json > /dev/null 2>&1; then
+        echo "Cache hit — node_modules matches package-lock.json, skipping npm ci"
+      else
+        npm ci --prefer-offline --no-audit
+        cp package-lock.json node_modules/.ci-package-lock.json
+      fi
   artifacts:
     expire_in: 1h
     paths:
