@@ -29,6 +29,13 @@ export function initSentryMain() {
     });
 
     try {
+        if (process.platform === 'win32') {
+            const build = Number(os.release().split('.')[2]);
+            if (Number.isFinite(build)) {
+                setContext('os', {name: 'Windows', version: build >= 22000 ? '11' : '10', build: os.release()});
+            }
+        }
+
         setContext('App-Build Information', {
             appName: app.getName(),
             appVersion: app.getVersion(),
