@@ -143,11 +143,15 @@ export async function initialize() {
 
     await permissionsManager.migratePermission();
 
-    // wait for registry config data to load and app ready event
-    await Promise.all([
-        app.whenReady(),
-        Config.initRegistry(),
-    ]);
+    await app.whenReady();
+    initializeInterCommunicationEventListeners();
+
+    // Must run before Config.initRegistry(): the renderer can start during a long
+    // registry read (e.g. tray click -> MainWindow.show()) and needs its handlers
+    // and the kchat-desktop protocol handler to already be registered.
+    initializeKchatProtocol();
+
+    await Config.initRegistry();
 
     // no need to continue initializing if app is quitting
     if (global.willAppQuit) {
@@ -162,7 +166,6 @@ export async function initialize() {
     }
 
     // initialization that should run once the app is ready
-    initializeInterCommunicationEventListeners();
     await initializeAfterAppReady();
 }
 
@@ -365,7 +368,7 @@ function initReceivedServer(servers: ConfigServer[]) {
     ServerManager.manageServersReceivedHandler(servers);
 }
 
-async function initializeAfterAppReady() {
+function initializeKchatProtocol() {
     protocol.handle('kchat-desktop', (request: Request) => {
         const url = parseURL(request.url);
         if (!url) {
@@ -383,7 +386,9 @@ async function initializeAfterAppReady() {
 
         return net.fetch(pathToFileURL(pathToServe).toString());
     });
+}
 
+async function initializeAfterAppReady() {
     ServerManager.reloadFromConfig();
     ServerManager.on(SERVERS_URL_MODIFIED, (serverIds?: string[]) => {
         if (serverIds && serverIds.length) {
