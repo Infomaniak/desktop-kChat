@@ -11,6 +11,7 @@ defaults:
 
 env:
   TERM: xterm
+  SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
 
 jobs:
   begin-notification:
