@@ -3,10 +3,31 @@
 // See LICENSE.txt for license information.
 
 import type {BrowserWindow, BrowserView, WebviewTag, WebContents, ContextMenuParams, Event} from 'electron';
-import type {Options} from 'electron-context-menu';
+import type {Labels, Options} from 'electron-context-menu';
 import electronContextMenu from 'electron-context-menu';
 
 import {parseURL} from 'common/utils/url';
+import {localizeMessage} from 'main/i18nManager';
+
+const getLocalizedLabels = (): Labels => ({
+    learnSpelling: localizeMessage('contextMenu.learnSpelling', 'Learn Spelling'),
+    lookUpSelection: localizeMessage('contextMenu.lookUpSelection', 'Look Up \u201c{selection}\u201d'),
+    searchWithGoogle: localizeMessage('contextMenu.searchWithGoogle', 'Search with Google'),
+    cut: localizeMessage('contextMenu.cut', 'Cut'),
+    copy: localizeMessage('contextMenu.copy', 'Copy'),
+    paste: localizeMessage('contextMenu.paste', 'Paste'),
+    selectAll: localizeMessage('contextMenu.selectAll', 'Select All'),
+    saveImage: localizeMessage('contextMenu.saveImage', 'Save Image'),
+    saveImageAs: localizeMessage('contextMenu.saveImageAs', 'Save Image As\u2026'),
+    saveVideo: localizeMessage('contextMenu.saveVideo', 'Save Video'),
+    saveVideoAs: localizeMessage('contextMenu.saveVideoAs', 'Save Video As\u2026'),
+    copyLink: localizeMessage('contextMenu.copyLink', 'Copy Link'),
+    saveLinkAs: localizeMessage('contextMenu.saveLinkAs', 'Save Link As\u2026'),
+    copyImage: localizeMessage('contextMenu.copyImage', 'Copy Image'),
+    copyImageAddress: localizeMessage('contextMenu.copyImageAddress', 'Copy Image Address'),
+    copyVideoAddress: localizeMessage('contextMenu.copyVideoAddress', 'Copy Video Address'),
+    services: localizeMessage('contextMenu.services', 'Services'),
+});
 
 const defaultMenuOptions = {
     shouldShowMenu: (e: Event, p: ContextMenuParams) => {
@@ -26,6 +47,7 @@ const defaultMenuOptions = {
     showSaveImage: true,
     showSaveImageAs: true,
     showServices: true,
+    showInspectElement: false,
 };
 
 export default class ContextMenu {
@@ -52,7 +74,7 @@ export default class ContextMenu {
     reload = () => {
         this.dispose();
 
-        const options = {window: this.view, ...this.menuOptions};
+        const options = {window: this.view, labels: getLocalizedLabels(), ...this.menuOptions};
         this.menuDispose = electronContextMenu(options);
     };
 }
