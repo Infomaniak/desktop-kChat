@@ -56,6 +56,9 @@ export class LoadingScreen {
 
         if (this.view?.webContents.isLoading()) {
             this.view.webContents.once('did-finish-load', () => {
+                if (this.state !== LoadingScreenState.VISIBLE) {
+                    return;
+                }
                 this.view!.webContents.send(TOGGLE_LOADING_SCREEN_VISIBILITY, true);
                 if (ModalManager.isModalDisplayed()) {
                     mainWindow.contentView.addChildView(this.view!, 1);

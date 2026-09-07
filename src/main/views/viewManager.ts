@@ -30,6 +30,7 @@ import {
     SWITCH_TAB,
     GET_IS_DEV_MODE,
     REFRESH_TOKEN,
+    RELOAD_CURRENT_VIEW,
     RESET_AUTH,
     RESET_TEAMS,
     RESET_TOKEN,
@@ -106,6 +107,7 @@ export class ViewManager {
         ipcMain.on(SESSION_EXPIRED, this.handleSessionExpired);
 
         ipcMain.on(SWITCH_TAB, (event, viewId) => this.showById(viewId));
+        ipcMain.on(RELOAD_CURRENT_VIEW, this.reload);
 
         ipcMain.handle(TOKEN_REQUEST, this.handleTokenRequest);
         ipcMain.handle(REFRESH_TOKEN, async () => {
