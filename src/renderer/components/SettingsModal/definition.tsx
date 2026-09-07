@@ -104,7 +104,7 @@ const definition: (intl: IntlShape) => Promise<SettingsDefinition> = async (intl
                 {
                     id: 'trayIconTheme',
                     component: RadioSetting,
-                    condition: (window.process.platform === 'linux' || window.process.platform === 'win32') && (await window.desktop.getLocalConfiguration()).showTrayIcon,
+                    condition: window.process.platform === 'linux' && (await window.desktop.getLocalConfiguration()).showTrayIcon,
                     props: {
                         label: (
                             <FormattedMessage

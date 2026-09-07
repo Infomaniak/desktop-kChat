@@ -1,35 +1,38 @@
 // Copyright (c) 2016-present Mattermost, Inc. All Rights Reserved.
 // See LICENSE.txt for license information.
 
-import path from 'path';
-
-import {app, nativeImage, Tray, systemPreferences, nativeTheme} from 'electron';
+import {app, Tray, systemPreferences, nativeTheme} from 'electron';
 
 import AppState from 'common/appState';
 import {UPDATE_APPSTATE_TOTALS} from 'common/communication';
 import {Logger} from 'common/log';
 import {localizeMessage} from 'main/i18nManager';
+import {loadImagesSync, loadImagesAsync} from 'main/tray/trayImages';
+import type {IconSet} from 'main/tray/trayImages';
 import MainWindow from 'main/windows/mainWindow';
 
-const assetsDir = path.resolve(app.getAppPath(), 'assets');
 const log = new Logger('Tray');
 
 export class TrayIcon {
     private tray?: Tray;
-    private images: Record<string, Electron.NativeImage>;
-    private status: string;
+    private images: IconSet;
+    private status: keyof IconSet;
     private message: string;
+    private iconTheme: string;
+    private themeChangeTimeout: NodeJS.Timeout | null = null;
 
     constructor() {
         this.status = 'normal';
         this.message = app.name;
-        this.images = {};
+        this.images = {} as IconSet;
+        this.iconTheme = '';
 
         AppState.on(UPDATE_APPSTATE_TOTALS, this.onAppStateUpdate);
     }
 
     init = (iconTheme: string) => {
-        this.refreshImages(iconTheme);
+        this.iconTheme = iconTheme;
+        this.images = loadImagesSync(iconTheme);
         this.tray = new Tray(this.images.normal);
 
         if (process.platform === 'darwin') {
@@ -38,60 +41,34 @@ export class TrayIcon {
             });
         }
 
+        if (process.platform === 'win32') {
+            nativeTheme.on('updated', this.onThemeUpdated);
+        }
+
         this.tray.setToolTip(app.name);
         this.tray.on('click', this.onClick);
         this.tray.on('right-click', () => this.tray?.popUpContextMenu());
         this.tray.on('balloon-click', this.onClick);
+
+        // loadImagesSync uses nativeTheme.shouldUseDarkColors which can be wrong when
+        // the app theme overrides nativeTheme.themeSource. Refresh async from the
+        // Windows registry to get the real system theme and correct the icon.
+        this.refreshImages(iconTheme);
     };
 
-    refreshImages = (trayIconTheme: string) => {
-        const systemTheme = nativeTheme.shouldUseDarkColors ? 'light' : 'dark';
-        const winTheme = trayIconTheme === 'use_system' ? systemTheme : trayIconTheme;
-
-        switch (process.platform) {
-        case 'win32':
-            this.images = {
-                normal: nativeImage.createFromPath(path.resolve(assetsDir, `windows/tray_${winTheme}.ico`)),
-                unread: nativeImage.createFromPath(path.resolve(assetsDir, `windows/tray_${winTheme}_unread.ico`)),
-                mention: nativeImage.createFromPath(path.resolve(assetsDir, `windows/tray_${winTheme}_mention.ico`)),
-            };
-            break;
-        case 'darwin':
-        {
-            const osxNormal = nativeImage.createFromPath(path.resolve(assetsDir, 'osx/menuIcons/MenuIcon16Template.png'));
-            const osxUnread = nativeImage.createFromPath(path.resolve(assetsDir, 'osx/menuIcons/MenuIconUnread16Template.png'));
-            osxNormal.setTemplateImage(true);
-            osxUnread.setTemplateImage(true);
-
-            this.images = {
-                normal: osxNormal,
-                unread: osxUnread,
-                mention: osxUnread,
-            };
-
-            break;
+    private onThemeUpdated = () => {
+        if (this.themeChangeTimeout) {
+            clearTimeout(this.themeChangeTimeout);
         }
-        case 'linux':
-        {
-            if (trayIconTheme === 'dark') {
-                this.images = {
-                    normal: nativeImage.createFromPath(path.resolve(assetsDir, 'linux', 'top_bar_dark_16.png')),
-                    unread: nativeImage.createFromPath(path.resolve(assetsDir, 'linux', 'top_bar_dark_unread_16.png')),
-                    mention: nativeImage.createFromPath(path.resolve(assetsDir, 'linux', 'top_bar_dark_mention_16.png')),
-                };
-            } else {
-                //Fallback for invalid theme setting
-                this.images = {
-                    normal: nativeImage.createFromPath(path.resolve(assetsDir, 'linux', 'top_bar_light_16.png')),
-                    unread: nativeImage.createFromPath(path.resolve(assetsDir, 'linux', 'top_bar_light_unread_16.png')),
-                    mention: nativeImage.createFromPath(path.resolve(assetsDir, 'linux', 'top_bar_light_mention_16.png')),
-                };
-            }
-            break;
-        }
-        default:
-            this.images = {};
-        }
+        this.themeChangeTimeout = setTimeout(() => {
+            this.themeChangeTimeout = null;
+            this.refreshImages(this.iconTheme);
+        }, 300);
+    };
+
+    refreshImages = async (trayIconTheme: string) => {
+        this.iconTheme = trayIconTheme;
+        this.images = await loadImagesAsync(trayIconTheme);
         if (this.tray) {
             this.update(this.status, this.message);
         }
@@ -100,13 +77,18 @@ export class TrayIcon {
 
     destroy = () => {
         if (process.platform === 'win32') {
+            nativeTheme.removeListener('updated', this.onThemeUpdated);
+            if (this.themeChangeTimeout) {
+                clearTimeout(this.themeChangeTimeout);
+                this.themeChangeTimeout = null;
+            }
             this.tray?.destroy();
         }
     };
 
     setMenu = (tMenu: Electron.Menu) => this.tray?.setContextMenu(tMenu);
 
-    private update = (status: string, message: string) => {
+    private update = (status: keyof IconSet, message: string) => {
         if (!this.tray || this.tray.isDestroyed()) {
             return;
         }
@@ -117,9 +99,6 @@ export class TrayIcon {
         this.tray.setToolTip(message);
     };
 
-    // Linux note: the click event was fixed in Electron v23, but only fires when the OS supports StatusIconLinuxDbus
-    // There is a fallback case that will make sure the icon is displayed, but will only support the context menu
-    // See here: https://github.com/electron/electron/pull/36333
     private onClick = () => {
         log.verbose('onClick');
 
