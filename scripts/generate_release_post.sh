@@ -7,6 +7,7 @@ BUILD_LINUX_RESULT="${BUILD_LINUX_RESULT:-}"
 BUILD_LINUX_ARM_RESULT="${BUILD_LINUX_ARM_RESULT:-}"
 BUILD_WINDOWS_RESULT="${BUILD_WINDOWS_RESULT:-}"
 GITHUB_RELEASE_RESULT="${GITHUB_RELEASE_RESULT:-}"
+SENTRY_RELEASE_RESULT="${SENTRY_RELEASE_RESULT:-}"
 
 failed_jobs=()
 
@@ -32,6 +33,11 @@ else
     for job in "${failed_jobs[@]}"; do
         echo "- $job"
     done
+fi
+
+if [ "$SENTRY_RELEASE_RESULT" != "success" ] && [ "$SENTRY_RELEASE_RESULT" != "skipped" ] && [ "$SENTRY_RELEASE_RESULT" != "cancelled" ] && [ -n "$SENTRY_RELEASE_RESULT" ]; then
+    echo ""
+    echo "⚠️ Sentry release tracking failed (\`sentry-release: $SENTRY_RELEASE_RESULT\`) - the release shipped, Sentry metadata may be incomplete"
 fi
 
 echo ""

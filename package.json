@@ -126,7 +126,7 @@
         "@electron/rebuild": "3.6.0",
         "@mattermost/desktop-api": "file:api-types",
         "@mattermost/eslint-plugin": "1.1.0-0",
-        "@sentry/webpack-plugin": "2.16.1",
+        "@sentry/webpack-plugin": "5.4.0",
         "@types/auto-launch": "5.0.5",
         "@types/jest": "29.4.1",
         "@types/jitsi-meet": "^2.0.5",
@@ -169,7 +169,6 @@
         "webpack-cli": "4.10.0",
         "webpack-merge": "5.8.0"
     },
-
     "dependencies": {
         "@emotion/react": "11.11.4",
         "@floating-ui/react": "0.26.28",

@@ -29,7 +29,10 @@
     {
       "from": "dist",
       "to": ".",
-      "filter": "**/*"
+      "filter": [
+        "**/*",
+        "!**/*.map"
+      ]
     }
   ],
   "protocols": [

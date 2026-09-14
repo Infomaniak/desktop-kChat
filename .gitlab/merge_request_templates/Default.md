@@ -6,6 +6,14 @@ A description of what this merge request does.
 #### Ticket Link
 <!--
 If this merge request addresses a redmine ticket, please link it here
+
+Sentry issues (desktop): if this MR fixes one, include `fixes DESKTOP-XXX` in the
+MR title/description OR in a COMMIT message — the GitLab integration auto-resolves
+the issue when the relevant commit lands in a Sentry release (created by the
+`sentry-release` CI job on each tag). The keyword `fixes` is required;
+`[DESKTOP-XXX]` alone won't resolve it.
+If the repo squash-merges, prefer the MR title/description (the commit path
+survives squash too, but only via the squash commit message).
 -->
 
 #### How to test

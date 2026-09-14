@@ -24,8 +24,12 @@ export function initSentryMain() {
         return;
     }
 
+    // SENTRY_RELEASE is baked at build time (webpack codeDefinitions) from the tag, so every
+    // platform reports exactly the CI-created release name (app.getVersion() misses on MAS/Linux).
     init({
         dsn: process.env.SENTRY_DSN,
+        release: process.env.SENTRY_RELEASE || `kChat@${app.getVersion()}`,
+        environment: process.env.SENTRY_ENVIRONMENT || 'production',
     });
 
     try {

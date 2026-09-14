@@ -1,0 +1,58 @@
+name: sentry-release
+
+on:
+    workflow_call:
+
+env:
+    SENTRY_URL: ${{ secrets.SENTRY_URL }}
+    SENTRY_ORG: sentry
+    SENTRY_PROJECT: desktop
+    SENTRY_RELEASE: kChat@${{ github.ref_name }}
+    SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+
+jobs:
+    sentry-release:
+        runs-on: ubuntu-latest
+        steps:
+            - name: release/checkout-repo
+              uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+            - name: release/warn-if-sentry-dsn-missing
+              env:
+                  SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
+                  RELEASE_WEBHOOK_URL: ${{ secrets.RELEASE_WEBHOOK_URL }}
+              run: |
+                  if [ -n "$SENTRY_DSN" ]; then
+                      exit 0
+                  fi
+                  bash scripts/kchat_notify.sh "[$GITHUB_REF_NAME] Warning: the SENTRY_DSN secret is not set in the GitHub repo settings, Sentry will be silently disabled in this release build."
+            - name: release/sentry-checks
+              # Read-only diagnostics: org:ci tokens may not cover repos list. Never blocks the release, reports to kChat like the DSN warning
+              env:
+                  RELEASE_WEBHOOK_URL: ${{ secrets.RELEASE_WEBHOOK_URL }}
+              run: |
+                  npx -y @sentry/cli@2.42.4 releases list || CHECKS_FAILED=1
+                  npx -y @sentry/cli@2.42.4 repos list || echo "::notice::sentry repos list unavailable (the org:ci token may not cover it), see logs above"
+                  if [ -z "$CHECKS_FAILED" ]; then
+                      exit 0
+                  fi
+                  echo "::warning::sentry-checks failed, see logs above"
+                  bash scripts/kchat_notify.sh "[$GITHUB_REF_NAME] Warning: the Sentry release checks failed (see workflow logs), the release and its commits may not be reported to Sentry."
+                  exit 0
+            - name: release/sentry-publish
+              run: |
+                  npx -y @sentry/cli@2.42.4 releases new "$SENTRY_RELEASE"
+                  npx -y @sentry/cli@2.42.4 releases set-commits "$SENTRY_RELEASE" --commit "kchat/desktop@${GITHUB_SHA}" --ignore-missing
+                  npx -y @sentry/cli@2.42.4 releases finalize "$SENTRY_RELEASE"
+            - name: release/sentry-maps-check
+              env:
+                  RELEASE_WEBHOOK_URL: ${{ secrets.RELEASE_WEBHOOK_URL }}
+              run: |
+                  if ! npx -y @sentry/cli@2.42.4 releases files "$SENTRY_RELEASE" list > /tmp/sentry-files.txt 2>&1; then
+                      cat /tmp/sentry-files.txt
+                      echo "::notice::sentry releases files list unavailable (the org:ci token may not cover it), see above"
+                      exit 0
+                  fi
+                  if ! grep -qE '\.map([[:space:]]|$)' /tmp/sentry-files.txt; then
+                      cat /tmp/sentry-files.txt
+                      bash scripts/kchat_notify.sh "[$GITHUB_REF_NAME] Warning: the Sentry release has no sourcemaps, the plugin upload may have failed silently."
+                  fi

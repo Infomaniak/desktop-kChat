@@ -10,5 +10,6 @@ export function initSentryRenderer() {
 
     init({
         dsn: process.env.SENTRY_DSN,
+        environment: process.env.SENTRY_ENVIRONMENT || 'production',
     });
 }
