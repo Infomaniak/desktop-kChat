@@ -178,6 +178,48 @@ const logsPath: { [os: string]: string } = {
 export const getLogsPath = () => logsPath[process.platform];
 
 /**
+ * Applies the zoom in/out shortcuts for characters the menu accelerator system
+ * cannot match reliably.
+ *
+ * Menu accelerators are matched against Windows-style virtual keys, which
+ * Chromium derives from the pressed character through the Windows keyboard
+ * layout tables (ui/events/keycodes/keyboard_code_conversion_x.cc, MAP0-MAP3).
+ * On Linux layouts where '=', '+' and '-' are not on their US position
+ * (AZERTY, QWERTZ, ...), the physical keys report another virtual key - e.g.
+ * the AZERTY '-' key sits on the '6' position and reports VKEY_6 - so menu
+ * accelerators like 'CmdOrCtrl+-' never match.
+ *
+ * `input.key` holds the character printed on the pressed key, which is true
+ * for every layout, so it is safe to act on it directly.
+ *
+ * Returns true when the input was handled, in which case the caller must call
+ * event.preventDefault() to avoid a double zoom from the menu accelerator.
+ *
+ * @see https://github.com/electron/electron/issues/29996
+ */
+export function handleLayoutAwareZoomShortcut(webContents: Electron.WebContents, input: Electron.Input): boolean {
+    // input.alt is checked to not interfere with AltGr, which is reported as
+    // Ctrl+Alt on Linux.
+    if (process.platform !== 'linux' || input.type !== 'keyDown' || !input.control || input.alt || input.meta) {
+        return false;
+    }
+
+    if (input.key === '-') {
+        webContents.zoomLevel -= 0.5;
+
+        return true;
+    }
+
+    if (input.key === '=' || input.key === '+') {
+        webContents.zoomLevel += 0.5;
+
+        return true;
+    }
+
+    return false;
+}
+
+/**
  * Returns if the error is a SIGPIPE error. SIGPIPE errors should generally be
  * logged at most once, to avoid a loop.
  *

@@ -133,4 +133,69 @@ describe('main/utils', () => {
             expect(Utils.isInsideRectangle(a, b)).toBe(expected);
         });
     });
+
+    describe('handleLayoutAwareZoomShortcut', () => {
+        let originalPlatform;
+        let webContents;
+
+        beforeAll(() => {
+            originalPlatform = process.platform;
+            Object.defineProperty(process, 'platform', {
+                value: 'linux',
+            });
+        });
+
+        beforeEach(() => {
+            webContents = {zoomLevel: 0};
+        });
+
+        afterAll(() => {
+            Object.defineProperty(process, 'platform', {
+                value: originalPlatform,
+            });
+        });
+
+        it.each([
+
+            // AZERTY: the '-' key sits on the '6' position and reports VKEY_6
+            [{type: 'keyDown', key: '-', code: 'Digit6', control: true, alt: false, shift: false, meta: false}, -0.5],
+            [{type: 'keyDown', key: '-', code: 'Minus', control: true, alt: false, shift: false, meta: false}, -0.5],
+
+            // AZERTY: the '=' key stays on the US '=' position
+            [{type: 'keyDown', key: '=', code: 'Equal', control: true, alt: false, shift: false, meta: false}, 0.5],
+
+            // '+' typed with Shift on AZERTY or QWERTY
+            [{type: 'keyDown', key: '+', code: 'Equal', control: true, alt: false, shift: true, meta: false}, 0.5],
+
+            // Numpad +/-
+            [{type: 'keyDown', key: '+', code: 'NumpadAdd', control: true, alt: false, shift: false, meta: false}, 0.5],
+            [{type: 'keyDown', key: '-', code: 'NumpadSubtract', control: true, alt: false, shift: false, meta: false}, -0.5],
+        ])('should zoom for %j', (input, expectedZoomLevel) => {
+            expect(Utils.handleLayoutAwareZoomShortcut(webContents, input)).toBe(true);
+            expect(webContents.zoomLevel).toBe(expectedZoomLevel);
+        });
+
+        it.each([
+
+            // Ctrl+6 on QWERTY types '6' and must not zoom out
+            [{type: 'keyDown', key: '6', code: 'Digit6', control: true, alt: false, shift: false, meta: false}],
+
+            // AltGr characters are reported as Ctrl+Alt on Linux
+            [{type: 'keyDown', key: '-', code: 'Digit6', control: true, alt: true, shift: false, meta: false}],
+            [{type: 'keyDown', key: '=', code: 'Equal', control: true, alt: true, shift: false, meta: false}],
+
+            // Super (meta) combos
+            [{type: 'keyDown', key: '-', code: 'Minus', control: false, alt: false, shift: false, meta: true}],
+
+            // key up and no control
+            [{type: 'keyUp', key: '-', code: 'Digit6', control: true, alt: false, shift: false, meta: false}],
+            [{type: 'keyDown', key: '-', code: 'Digit6', control: false, alt: false, shift: false, meta: false}],
+
+            // other characters
+            [{type: 'keyDown', key: 'à', code: 'Digit0', control: true, alt: false, shift: false, meta: false}],
+        ])('should not zoom for %j', (input) => {
+            expect(Utils.handleLayoutAwareZoomShortcut(webContents, input)).toBe(false);
+            expect(webContents.zoomLevel).toBe(0);
+        });
+    });
 });

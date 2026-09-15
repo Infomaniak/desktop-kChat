@@ -32,7 +32,7 @@ import ServersSidebar from './serversSidebar';
 import WebContentsEventManager from './webContentEvents';
 
 import ContextMenu from '../contextMenu';
-import {getWindowBoundaries, getLocalPreload, composeUserAgent} from '../utils';
+import {getWindowBoundaries, getLocalPreload, composeUserAgent, handleLayoutAwareZoomShortcut} from '../utils';
 
 enum Status {
     LOADING,
@@ -363,13 +363,19 @@ export class MattermostWebContentsView extends EventEmitter {
         return input.type === 'keyUp' && this.altPressStatus === true;
     };
 
-    private handleInputEvents = (_: Event, input: Input) => {
+    private handleInputEvents = (event: Event, input: Input) => {
         this.log.silly('handleInputEvents', input);
 
         this.registerAltKeyPressed(input);
 
         if (this.isAltKeyReleased(input)) {
             MainWindow.focusThreeDotMenu();
+        }
+
+        // Zoom in/out for characters the menu accelerator system cannot match on
+        // some keyboard layouts (e.g. '-' is VKEY_6 on AZERTY).
+        if (this.webContentsView?.webContents && handleLayoutAwareZoomShortcut(this.webContentsView.webContents, input)) {
+            event.preventDefault();
         }
     };
 

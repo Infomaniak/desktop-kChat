@@ -4,7 +4,7 @@
 import fs from 'fs';
 import path from 'path';
 
-import {BrowserWindow, screen, app, globalShortcut, dialog} from 'electron';
+import {BrowserWindow, screen, app, dialog} from 'electron';
 
 import {SELECT_NEXT_TAB, SELECT_PREVIOUS_TAB} from 'common/communication';
 import Config from 'common/config';
@@ -41,10 +41,6 @@ jest.mock('electron', () => ({
         getDisplayMatching: jest.fn(),
         getPrimaryDisplay: jest.fn(),
     },
-    globalShortcut: {
-        register: jest.fn(),
-        registerAll: jest.fn(),
-    },
 }));
 
 jest.mock('common/config', () => ({
@@ -68,6 +64,7 @@ jest.mock('../contextMenu', () => jest.fn());
 jest.mock('../utils', () => ({
     isInsideRectangle: jest.fn(),
     getLocalPreload: jest.fn(),
+    handleLayoutAwareZoomShortcut: jest.fn().mockReturnValue(false),
     isKDE: jest.fn(),
     shouldBeHiddenOnStartup: jest.fn().mockReturnValue(false),
 }));
@@ -527,7 +524,7 @@ describe('main/windows/mainWindow', () => {
             expect(window.webContents.send).toHaveBeenCalledWith(SELECT_PREVIOUS_TAB);
         });
 
-        it('should add override shortcuts for the top menu on Linux to stop it showing up', () => {
+        it('should suppress Alt+<letter> menu mnemonics on Linux via before-input-event', () => {
             const {isKDE} = require('../utils');
             isKDE.mockReturnValue(false);
 
@@ -535,8 +532,18 @@ describe('main/windows/mainWindow', () => {
             Object.defineProperty(process, 'platform', {
                 value: 'linux',
             });
+            const preventDefault = jest.fn();
+            const inputEvents = [];
             const window = {
                 ...baseWindow,
+                webContents: {
+                    ...baseWindow.webContents,
+                    on: jest.fn().mockImplementation((event, cb) => {
+                        if (event === 'before-input-event') {
+                            inputEvents.push(cb);
+                        }
+                    }),
+                },
                 on: jest.fn().mockImplementation((event, cb) => {
                     if (event === 'focus') {
                         cb();
@@ -547,13 +554,17 @@ describe('main/windows/mainWindow', () => {
             const mainWindow = new MainWindow();
             mainWindow.getBounds = jest.fn();
             mainWindow.init();
+
+            // Simulate Alt+F keyDown while platform is still linux
+            inputEvents.forEach((cb) => cb({preventDefault}, {type: 'keyDown', alt: true, control: false, shift: false, meta: false, key: 'f'}));
+            expect(preventDefault).toHaveBeenCalled();
+
             Object.defineProperty(process, 'platform', {
                 value: originalPlatform,
             });
-            expect(globalShortcut.registerAll).toHaveBeenCalledWith(['Alt+F', 'Alt+E', 'Alt+V', 'Alt+H', 'Alt+W', 'Alt+P'], expect.any(Function));
         });
 
-        it('should register global shortcuts even when window is minimized on KDE/KWin', () => {
+        it('should still handle focus correctly when window is minimized on KDE/KWin', () => {
             const {isKDE} = require('../utils');
             isKDE.mockReturnValue(true);
 
@@ -575,7 +586,6 @@ describe('main/windows/mainWindow', () => {
             mainWindow.getBounds = jest.fn();
             mainWindow.init();
 
-            expect(globalShortcut.registerAll).toHaveBeenCalled();
             Object.defineProperty(process, 'platform', {
                 value: originalPlatform,
             });

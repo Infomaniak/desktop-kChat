@@ -6,7 +6,7 @@ import os from 'os';
 import path from 'path';
 
 import type {BrowserWindowConstructorOptions, Event, Input} from 'electron';
-import {app, BrowserWindow, dialog, globalShortcut, ipcMain, screen} from 'electron';
+import {app, BrowserWindow, dialog, ipcMain, screen} from 'electron';
 import {EventEmitter} from 'events';
 
 import AppState from 'common/appState';
@@ -38,10 +38,10 @@ import performanceMonitor from 'main/performanceMonitor';
 import type {SavedWindowState} from 'types/mainWindow';
 
 import ContextMenu from '../contextMenu';
-import {getLocalPreload, isInsideRectangle, isKDE, shouldBeHiddenOnStartup} from '../utils';
+import {getLocalPreload, handleLayoutAwareZoomShortcut, isInsideRectangle, isKDE, shouldBeHiddenOnStartup} from '../utils';
 
 const log = new Logger('MainWindow');
-const ALT_MENU_KEYS = ['Alt+F', 'Alt+E', 'Alt+V', 'Alt+H', 'Alt+W', 'Alt+P'];
+const ALT_MENU_LETTERS = ['f', 'e', 'v', 'h', 'w', 'p'];
 
 // systemPreferences.setUserDefault('NSDisabledDictationMenuItem', 'boolean', true);
 // systemPreferences.setUserDefault('NSDisabledCharacterPaletteMenuItem', 'boolean', true);
@@ -306,20 +306,26 @@ export class MainWindow extends EventEmitter {
                 }
             }
         }
+
+        // On Linux, suppress Alt+<letter> menu mnemonics that would open the native menu bar
+        if (process.platform === 'linux' && input.type === 'keyDown' && input.alt && !input.control && !input.shift && !input.meta) {
+            if (ALT_MENU_LETTERS.includes(input.key.toLowerCase())) {
+                event.preventDefault();
+            }
+        }
+
+        // Zoom in/out for characters the menu accelerator system cannot match on
+        // some keyboard layouts (e.g. '-' is VKEY_6 on AZERTY).
+        if (this.win && handleLayoutAwareZoomShortcut(this.win.webContents, input)) {
+            event.preventDefault();
+        }
     };
 
     private onFocus = () => {
-        // Only add shortcuts when window is in focus
-        if (process.platform === 'linux') {
-            globalShortcut.registerAll(ALT_MENU_KEYS, () => {
-                // do nothing because we want to supress the menu popping up
-            });
-
-            // check if KDE + windows is minimized to prevent unwanted focus event
-            // that was causing an error not allowing minimization (MM-60233)
-            if ((!this.win || this.win.isMinimized()) && isKDE()) {
-                return;
-            }
+        // check if KDE + windows is minimized to prevent unwanted focus event
+        // that was causing an error not allowing minimization (MM-60233)
+        if (process.platform === 'linux' && (!this.win || this.win.isMinimized()) && isKDE()) {
+            return;
         }
 
         this.emit(MAIN_WINDOW_RESIZED, this.getBounds());
@@ -330,8 +336,6 @@ export class MainWindow extends EventEmitter {
         if (!this.win) {
             return;
         }
-
-        globalShortcut.unregisterAll();
 
         this.emit(MAIN_WINDOW_RESIZED, this.getBounds());
         ipcMain.emit(TOGGLE_SECURE_INPUT, null, false);
