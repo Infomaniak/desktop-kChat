@@ -1,33 +1,18 @@
-#### Summary
+## Bug / Problème
+
+#### Fonctionnel
+<!-- Ce que l'utilisateur observe, l'impact métier -->
+
+#### Technique
+ <!-- Cause racine, composant concerné, pourquoi ça casse -->
+
+## Solution
+<!-- Explique l'approche choisie et pourquoi -->
+
+## Comment tester
+
+## Screenshots (si applicable)
 <!--
-A description of what this merge request does.
--->
-
-#### Ticket Link
-<!--
-If this merge request addresses a redmine ticket, please link it here
-
-Sentry issues (desktop): if this MR fixes one, include `fixes DESKTOP-XXX` in the
-MR title/description OR in a COMMIT message — the GitLab integration auto-resolves
-the issue when the relevant commit lands in a Sentry release (created by the
-`sentry-release` CI job on each tag). The keyword `fixes` is required;
-`[DESKTOP-XXX]` alone won't resolve it.
-If the repo squash-merges, prefer the MR title/description (the commit path
-survives squash too, but only via the squash commit message).
--->
-
-#### How to test
-<!--
-Add here steps to replicate/test the issue/bug/feature. 
-
-Or simply add "See related Ticket"
--->
-
-#### Screenshots
-<!--
-If the MR includes UI changes, include screenshots/GIFs.
-
-For an easier comparison of UI changes a table (template below) can be used.
 
 |  before  |  after  |
 |----|----|
@@ -35,39 +20,8 @@ For an easier comparison of UI changes a table (template below) can be used.
 
 -->
 
-#### Release Note
-<!--
-Add a release note for each of the following conditions:
-
-* Config changes (additions, deletions, updates)
-* API additions—new endpoint, new response fields, or newly accepted request parameters
-* Database changes (any)
-* Websocket additions or changes
-* Anything noteworthy to a Mattermost instance administrator (err on the side of over-communicating)
-* New features and improvements, including behavioural changes, UI changes and CLI changes
-* Bug fixes and fixes of previous known issues
-* Deprecation warnings, breaking changes, or compatibility notes
-
-If no release notes are required write NONE. Use past-tense. Newlines are stripped.
-
-Examples:
-
-```
-Added new API endpoints POST /api/v4/foo, GET api/v4/foo, and GET api/v4/foo/:foo_id.
-```
-
-```
-Added a new config setting ServiceSettings.FooBar. Added a new column Foo to the Users table.
-```
-
-```
-NONE
-```
--->
-```release-note
-
-```
+## Ticket lié
 
 /assign me  
-/reviewer @eliott.scherrer @boris.trombert @aurelien.sberro  
+/reviewer @boris.trombert @aurelien.sberro @eliott.scherrer
 /remove_reviewer me  
