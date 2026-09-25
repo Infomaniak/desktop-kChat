@@ -41,18 +41,28 @@ jobs:
             - name: release/sentry-publish
               run: |
                   npx -y @sentry/cli@2.42.4 releases new "$SENTRY_RELEASE"
-                  npx -y @sentry/cli@2.42.4 releases set-commits "$SENTRY_RELEASE" --commit "kchat/desktop@${GITHUB_SHA}" --ignore-missing
+                  npx -y @sentry/cli@2.42.4 releases set-commits "$SENTRY_RELEASE" --commit "kChat / desktop@${GITHUB_SHA}" --ignore-missing
                   npx -y @sentry/cli@2.42.4 releases finalize "$SENTRY_RELEASE"
             - name: release/sentry-maps-check
+              # debug-ID uploads land in artifact bundles, invisible to `releases files list` (separate storage), so query the bundles API
+              if: ${{ !cancelled() }}
               env:
                   RELEASE_WEBHOOK_URL: ${{ secrets.RELEASE_WEBHOOK_URL }}
               run: |
-                  if ! npx -y @sentry/cli@2.42.4 releases files "$SENTRY_RELEASE" list > /tmp/sentry-files.txt 2>&1; then
-                      cat /tmp/sentry-files.txt
-                      echo "::notice::sentry releases files list unavailable (the org:ci token may not cover it), see above"
+                  if ! curl -sf --max-time 30 --get "$SENTRY_URL/api/0/projects/$SENTRY_ORG/$SENTRY_PROJECT/files/artifact-bundles/" \
+                          --data-urlencode "query=$SENTRY_RELEASE" \
+                          -H "Authorization: Bearer $SENTRY_AUTH_TOKEN" > /tmp/sentry-bundles.json 2>&1; then
+                      cat /tmp/sentry-bundles.json
+                      echo "::notice::sentry artifact-bundles list unavailable (the org:ci token may not cover it), see above"
                       exit 0
                   fi
-                  if ! grep -qE '\.map([[:space:]]|$)' /tmp/sentry-files.txt; then
-                      cat /tmp/sentry-files.txt
+                  COUNT=$(python3 -c "import json,os; data=json.load(open('/tmp/sentry-bundles.json')); release=os.environ['SENTRY_RELEASE']; print(sum(1 for b in data if b.get('fileCount',0)>0 and any(a.get('release')==release for a in (b.get('associations') or []))))") || { echo "::notice::could not parse the artifact-bundles response, skipping maps check"; exit 0; }
+                  if [ "$COUNT" -eq 0 ]; then
                       bash scripts/kchat_notify.sh "[$GITHUB_REF_NAME] Warning: the Sentry release has no sourcemaps, the plugin upload may have failed silently."
                   fi
+            - name: release/notify-publish-failure
+              if: failure()
+              env:
+                  RELEASE_WEBHOOK_URL: ${{ secrets.RELEASE_WEBHOOK_URL }}
+              run: |
+                  bash scripts/kchat_notify.sh "[$GITHUB_REF_NAME] Warning: the Sentry release publication failed (see workflow logs), the release and its commits may be incomplete in Sentry."
