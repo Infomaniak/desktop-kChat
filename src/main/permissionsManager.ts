@@ -27,6 +27,7 @@ import {
 import JsonFileManager from 'common/JsonFileManager';
 import {Logger} from 'common/log';
 import type {MattermostServer} from 'common/servers/MattermostServer';
+import {KMEET_ORIGIN} from 'common/utils/constants';
 import {isTrustedURL, parseURL} from 'common/utils/url';
 import Utils, {t} from 'common/utils/util';
 import {permissionsJson} from 'main/constants';
@@ -203,7 +204,7 @@ export class PermissionsManager extends JsonFileManager<PermissionsByOrigin> {
         const isExternalFullscreen = permission === 'fullscreen' && parsedURL.origin !== serverURL?.origin;
 
         // is the requesting url trusted?
-        if (!(isTrustedURL(parsedURL, serverURL!) || (permission === 'media' && (parsedURL.origin === serverURL?.origin || parsedURL.host === 'kmeet.infomaniak.com')) || isExternalFullscreen)) {
+        if (!(isTrustedURL(parsedURL, serverURL!) || (permission === 'media' && (parsedURL.origin === serverURL?.origin || parsedURL.host === KMEET_ORIGIN)) || isExternalFullscreen)) {
             return false;
         }
 

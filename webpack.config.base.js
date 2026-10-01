@@ -26,6 +26,7 @@ const codeDefinitions = {
     __DISABLE_GPU__: JSON.stringify(process.env.MM_DESKTOP_BUILD_DISABLEGPU === 'true'),
 };
 codeDefinitions['process.env.NODE_ENV'] = JSON.stringify(process.env.NODE_ENV);
+codeDefinitions['process.env.KCHAT_PREPROD'] = JSON.stringify(process.env.KCHAT_PREPROD || '');
 codeDefinitions['process.env.SENTRY_DSN'] = JSON.stringify(process.env.SENTRY_DSN);
 codeDefinitions['process.env.SENTRY_RELEASE'] = JSON.stringify(process.env.SENTRY_RELEASE || '');
 codeDefinitions['process.env.SENTRY_ENVIRONMENT'] = JSON.stringify(process.env.SENTRY_ENVIRONMENT);

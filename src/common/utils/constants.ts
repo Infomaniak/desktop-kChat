@@ -2,6 +2,8 @@
 // See LICENSE.txt for license information.
 /* eslint-disable quote-props */
 
+import {isPreprod} from 'common/config/ikConfig';
+
 export const PRODUCTION = 'production';
 export const DEVELOPMENT = 'development';
 
@@ -33,7 +35,9 @@ export const MINIMUM_WINDOW_HEIGHT = 240;
 export const MINIMUM_CALLS_WIDGET_WIDTH = 284;
 export const MINIMUM_CALLS_WIDGET_HEIGHT = 90;
 export const CALLS_PLUGIN_ID = 'com.mattermost.calls';
-export const KMEET_ORIGIN = 'kmeet.infomaniak.com';
+
+// Build with KCHAT_PREPROD=true to use the preprod kMeet.
+export const KMEET_ORIGIN = isPreprod ? 'kmeet.preprod.dev.infomaniak.ch' : 'kmeet.infomaniak.com';
 
 export const DOWNLOADS_DROPDOWN_HEIGHT = 360;
 export const DOWNLOADS_DROPDOWN_WIDTH = 280;
