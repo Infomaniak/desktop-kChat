@@ -8,14 +8,13 @@ import ServerSmallImage from 'renderer/components/Images/server-small';
 import NewServerModal from 'renderer/components/NewServerModal';
 import RemoveServerModal from 'renderer/components/RemoveServerModal';
 
-import type {Server, UniqueServer} from 'types/config';
+import type {UniqueServer} from 'types/config';
 import type {Permissions, UniqueServerWithPermissions} from 'types/permissions';
 
 import './ServerSetting.scss';
 
 enum Modal {
-    ADD = 1,
-    EDIT,
+    EDIT = 1,
     REMOVE,
 }
 
@@ -45,11 +44,6 @@ export default function ServerSetting() {
         setModal(undefined);
     };
 
-    const addServer = (server: Server) => {
-        window.desktop.addServer(server);
-        closeModal();
-    };
-
     const editServer = (server: UniqueServer, permissions?: Permissions) => {
         window.desktop.editServer(server, permissions);
         closeModal();
@@ -60,10 +54,6 @@ export default function ServerSetting() {
             window.desktop.removeServer(currentServer.server.id);
         }
         closeModal();
-    };
-
-    const showAddServerModal = () => {
-        setModal(Modal.ADD);
     };
 
     const showEditServerModal = (server: UniqueServerWithPermissions) => () => {
@@ -78,15 +68,6 @@ export default function ServerSetting() {
 
     let openModal;
     switch (modal) {
-    case Modal.ADD:
-        openModal = (
-            <NewServerModal
-                onClose={closeModal}
-                onSave={addServer}
-                show={true}
-            />
-        );
-        break;
     case Modal.EDIT:
         openModal = (
             <NewServerModal
@@ -121,18 +102,6 @@ export default function ServerSetting() {
                             defaultMessage='Servers'
                         />
                     </h3>
-                    {enableServerManagement &&
-                        <button
-                            onClick={showAddServerModal}
-                            className='ServerSetting__addServer btn btn-sm btn-tertiary'
-                        >
-                            <i className='icon icon-plus'/>
-                            <FormattedMessage
-                                id='renderer.components.settingsPage.serverSetting.addAServer'
-                                defaultMessage='Add a server'
-                            />
-                        </button>
-                    }
                 </div>
                 {servers.length === 0 && (
                     <div className='ServerSetting__noServers'>

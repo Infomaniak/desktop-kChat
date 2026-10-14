@@ -44,7 +44,6 @@ function getStyle(style?: DraggingStyle | NotDraggingStyle) {
 }
 class ServerDropdown extends React.PureComponent<Record<string, never>, State> {
     buttonRefs: Map<number, HTMLButtonElement>;
-    addServerRef: React.RefObject<HTMLButtonElement>;
     focusedIndex: number | null;
 
     constructor(props: Record<string, never>) {
@@ -55,7 +54,6 @@ class ServerDropdown extends React.PureComponent<Record<string, never>, State> {
         this.focusedIndex = null;
 
         this.buttonRefs = new Map();
-        this.addServerRef = React.createRef();
 
         window.desktop.serverDropdown.onUpdateServerDropdown(this.handleUpdate);
     }
@@ -103,11 +101,6 @@ class ServerDropdown extends React.PureComponent<Record<string, never>, State> {
 
     preventPropagation = (event: React.MouseEvent<HTMLDivElement>) => {
         event.stopPropagation();
-    };
-
-    addServer = () => {
-        window.desktop.serverDropdown.showNewServerModal();
-        this.closeMenu();
     };
 
     isActiveServer = (server: UniqueServer) => {
@@ -361,21 +354,6 @@ class ServerDropdown extends React.PureComponent<Record<string, never>, State> {
                         </Droppable>
                     </DragDropContext>
                     <hr className='ServerDropdown__divider'/>
-                    {this.state.enableServerManagement &&
-                        <button
-                            ref={(ref) => {
-                                this.addButtonRef(this.state.servers?.length || 0, ref);
-                            }}
-                            className='ServerDropdown__button addServer'
-                            onClick={this.addServer}
-                        >
-                            <i className='icon-plus'/>
-                            <FormattedMessage
-                                id='renderer.dropdown.addAServer'
-                                defaultMessage='Add a server'
-                            />
-                        </button>
-                    }
                 </div>
             </IntlProvider>
         );

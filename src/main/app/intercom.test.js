@@ -65,12 +65,10 @@ describe('main/app/intercom', () => {
             ServerManager.hasServers.mockReturnValue(false);
         });
 
-        it('should show welcomeScreen modal', async () => {
-            const promise = Promise.resolve({});
-            ModalManager.addModal.mockReturnValue(promise);
-
+        it('should not show welcomeScreen modal (server addition is disabled)', () => {
             handleWelcomeScreenModal();
-            expect(ModalManager.addModal).toHaveBeenCalledWith('welcomeScreen', 'kchat-desktop://renderer/welcomeScreen.html', '/some/preload.js', {prefillURL: undefined}, {}, true);
+
+            expect(ModalManager.addModal).not.toHaveBeenCalled();
         });
     });
 

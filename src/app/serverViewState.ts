@@ -146,39 +146,12 @@ export class ServerViewState {
      * Server Modals
      */
 
-    showNewServerModal = (prefillURL?: string) => {
-        log.debug('showNewServerModal', {prefillURL});
-
-        const mainWindow = MainWindow.get();
-        if (!mainWindow) {
-            return;
-        }
-
-        const modalPromise = ModalManager.addModal<{prefillURL?: string}, Server>(
-            ModalConstants.NEW_SERVER_MODAL,
-            'kchat-desktop://renderer/newServer.html',
-            getLocalPreload('internalAPI.js'),
-            {prefillURL},
-            mainWindow,
-            !ServerManager.hasServers(),
-        );
-
-        modalPromise.then((data) => {
-            let initialLoadURL;
-            if (prefillURL) {
-                const parsedServerURL = parseURL(data.url);
-                if (parsedServerURL) {
-                    initialLoadURL = parseURL(`${parsedServerURL.origin}${prefillURL.substring(prefillURL.indexOf('/'))}`);
-                }
-            }
-            const newServer = ServerManager.addServer(data, initialLoadURL);
-            this.switchServer(newServer.id, true);
-        }).catch((e) => {
-            // e is undefined for user cancellation
-            if (e) {
-                log.error(`there was an error in the new server modal: ${e}`);
-            }
-        });
+    showNewServerModal = () => {
+        // IK: security fix (VDP - improper access control / RCE): server addition from the
+        // desktop UI is disabled. Servers are provisioned via configuration; a user-facing
+        // add-server flow (modal prefill + auto-validation) enabled the reported
+        // deeplink -> attacker-server -> token theft / RCE chain.
+        log.warn('showNewServerModal is disabled: adding servers from the desktop app is not allowed');
     };
 
     private handleShowNewServerModal = () => this.showNewServerModal();
@@ -435,9 +408,9 @@ export class ServerViewState {
     };
 
     private handleAddServer = (event: IpcMainEvent, server: Server) => {
-        log.debug('handleAddServer', server);
-
-        ServerManager.addServer(server);
+        // IK: security fix (VDP - improper access control / RCE): the Settings path must not
+        // bypass the removal of the add-server flows. Servers are provisioned via configuration.
+        log.warn('handleAddServer is disabled: adding servers from the desktop app is not allowed', {url: server?.url});
     };
 
     private handleEditServer = (event: IpcMainEvent, server: UniqueServer, permissions?: Permissions) => {

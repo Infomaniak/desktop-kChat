@@ -55,7 +55,6 @@ import {getFormattedPathName, parseURL} from 'common/utils/url';
 import Utils from 'common/utils/util';
 import type {MattermostView} from 'common/views/View';
 import {TAB_MESSAGING} from 'common/views/View';
-import {handleWelcomeScreenModal} from 'main/app/intercom';
 import {initTheme, updateTheme} from 'main/app/theme';
 import {flushCookiesStore, updateServerInfos} from 'main/app/utils';
 import DeveloperMode from 'main/developerMode';
@@ -354,11 +353,11 @@ export class ViewManager {
                         webContentsView.once(LOAD_FAILED, this.deeplinkFailed);
                     }
                 }
-            } else if (ServerManager.hasServers()) {
-                ServerViewState.showNewServerModal(`${parsedURL.host}${getFormattedPathName(parsedURL.pathname)}${parsedURL.search}`);
             } else {
-                ModalManager.removeModal('welcomeScreen');
-                handleWelcomeScreenModal(`${parsedURL.host}${getFormattedPathName(parsedURL.pathname)}${parsedURL.search}`);
+                // IK: security fix (VDP - improper access control / RCE): never offer to add
+                // an unknown server from a deeplink. A crafted kchat:// link must not be able
+                // to register an attacker-controlled server with a single click.
+                log.warn(`Ignoring deeplink to unconfigured server: ${parsedURL.toString()}`);
             }
         }
     };

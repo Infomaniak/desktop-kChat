@@ -199,27 +199,27 @@ describe('app/serverViewState', () => {
             }));
         });
 
-        it('should add new server to the config', async () => {
-            const data = {
-                name: 'new-server',
-                url: 'http://new-server.com',
-            };
-            const promise = Promise.resolve(data);
-            ModalManager.addModal.mockReturnValue(promise);
-
+        it('should not add any server (server addition is disabled)', () => {
             serverViewState.showNewServerModal();
-            await promise;
 
-            expect(ServerManager.addServer).toHaveBeenCalledWith(data, undefined);
-            expect(serversCopy).toContainEqual(expect.objectContaining({
-                id: 'server-1',
+            expect(ServerManager.addServer).not.toBeCalled();
+            expect(serversCopy).not.toContainEqual(expect.objectContaining({
                 name: 'new-server',
-                url: 'http://new-server.com',
-                tabs,
             }));
+        });
+    });
 
-            // TODO: For some reason jest won't recognize this as being called
-            //expect(spy).toHaveBeenCalledWith('server-1', true);
+    describe('handleAddServer', () => {
+        const serverViewState = new ServerViewState();
+
+        beforeEach(() => {
+            ServerManager.addServer.mockClear();
+        });
+
+        it('should not add any server via ADD_SERVER (server addition is disabled)', () => {
+            serverViewState.handleAddServer({}, {name: 'new-server', url: 'http://new-server.com'});
+
+            expect(ServerManager.addServer).not.toBeCalled();
         });
     });
 
