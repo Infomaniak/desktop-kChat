@@ -22,6 +22,8 @@
 
 ## Ticket lié
 
+Dans le message du commit : `fixes <ID>` (ex. `fixes RM-123456` ou `fixes DESKTOP-1234`), mot-clé `fixes` requis (un lien seul ne suffit pas) => Sentry résoudra l'issue à la release suivante.
+
 /assign me  
 /reviewer @boris.trombert @aurelien.sberro @eliott.scherrer
 /remove_reviewer me  
