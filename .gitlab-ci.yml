@@ -55,6 +55,7 @@ install:
         npm ci --prefer-offline --no-audit
         cp package-lock.json node_modules/.ci-package-lock.json
       fi
+    - test "$(npm config get min-release-age)" = "7" && test "$(npm --prefix e2e config get min-release-age)" = "7"
   artifacts:
     expire_in: 1h
     paths:
