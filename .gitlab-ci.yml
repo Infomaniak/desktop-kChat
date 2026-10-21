@@ -1,4 +1,4 @@
-image: node:20.15.0
+image: node:24.15.0
 
 stages:
   - setup
@@ -9,6 +9,7 @@ stages:
 
 variables:
   NODE_ENV: development
+  NPM_VERSION: "12.1.0"
   npm_config_cache: "$CI_PROJECT_DIR/.npm"
 
 default:
@@ -26,6 +27,7 @@ cache:
 
 .node-base:
   before_script:
+    - npm install -g npm@${NPM_VERSION}
     - node --version
     - npm --version
 
@@ -45,6 +47,7 @@ install:
       - .npm/
     policy: pull-push
   script:
+    - npm install -g npm@${NPM_VERSION}
     - |
       if [ -f node_modules/.ci-package-lock.json ] && diff -q node_modules/.ci-package-lock.json package-lock.json > /dev/null 2>&1; then
         echo "Cache hit — node_modules matches package-lock.json, skipping npm ci"
@@ -118,6 +121,8 @@ unit-tests:
   dependencies:
     - install
   script:
+    # .system-deps overrides .node-base's before_script, so npm 12 must be installed here explicitly
+    - npm install -g npm@${NPM_VERSION}
     - npm run test
   artifacts:
     when: always

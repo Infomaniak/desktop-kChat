@@ -8,7 +8,8 @@ Infomaniak fork of the mattermost desktop app modified to work with our internal
 
 ### Prerequisites
 
--   Node 16
+-   Node ^22.22.2 or ^24.15.0
+-   npm 12 (`npm install -g npm@12` — Node 22 and 24 ship npm 10/11)
 
 ### Desktop integration
 * Server dropdown for access to multiple servers

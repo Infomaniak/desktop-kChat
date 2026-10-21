@@ -12,6 +12,7 @@ defaults:
 
 env:
   TERM: xterm
+  NPM_VERSION: "12.1.0"
   SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
   SENTRY_RELEASE: kChat@${{ github.ref_name }}
   SENTRY_ENVIRONMENT: ${{ contains(github.ref_name, '-alpha') && 'alpha' || contains(github.ref_name, '-beta') && 'beta' || 'production' }}
@@ -52,6 +53,8 @@ jobs:
           node-version-file: ".nvmrc"
           cache: "npm"
           cache-dependency-path: package-lock.json
+      - name: release/install-npm-12
+        run: npm install -g npm@${{ env.NPM_VERSION }}
       - name: release/install-dependencies
         run: |
           brew install yq

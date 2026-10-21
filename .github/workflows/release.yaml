@@ -11,6 +11,7 @@ env:
     SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
     SENTRY_RELEASE: ${{ startsWith(github.ref, 'refs/tags/') && format('kChat@{0}', github.ref_name) || '' }}
     SENTRY_ENVIRONMENT: ${{ github.ref_type == 'tag' && (contains(github.ref_name, '-alpha') && 'alpha' || contains(github.ref_name, '-beta') && 'beta' || 'production') || 'alpha' }}
+    NPM_VERSION: "12.1.0"
 
 jobs:
     begin-notification:
@@ -32,9 +33,11 @@ jobs:
             - name: release/setup-node
               uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
               with:
-                  node-version-file: "package.json"
+                  node-version-file: ".nvmrc"
                   cache: "npm"
                   cache-dependency-path: package-lock.json
+            - name: release/install-npm-12
+              run: npm install -g npm@${{ env.NPM_VERSION }}
             - name: release/install-dependencies
               env:
                   NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
@@ -73,9 +76,11 @@ jobs:
             - name: release/setup-node
               uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
               with:
-                  node-version-file: "package.json"
+                  node-version-file: ".nvmrc"
                   cache: "npm"
                   cache-dependency-path: package-lock.json
+            - name: release/install-npm-12
+              run: npm install -g npm@${{ env.NPM_VERSION }}
             - name: release/install-dependencies
               env:
                   NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
@@ -111,7 +116,13 @@ jobs:
             - name: release/setup-node
               uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
               with:
-                  node-version: "18.15.0"
+                  node-version-file: ".nvmrc"
+            - name: release/install-npm-12
+              shell: powershell
+              run: |
+                  npm install -g npm@${{ env.NPM_VERSION }}
+                  if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+                  Add-Content $env:GITHUB_PATH ((npm config get prefix).Trim())
             - name: release/optimize
               shell: powershell
               run: ./scripts/Makefile.ps1 optimize

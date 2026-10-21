@@ -9,7 +9,8 @@
     "desktopName": "com.infomaniak.chat",
     "homepage": "https://infomaniak.com/kchat",
     "engines": {
-        "node": ">=18.0.0"
+        "node": ">=18.0.0",
+        "npm": "^10 || ^11 || ^12"
     },
     "repository": {
         "type": "git",
@@ -155,7 +156,7 @@
         "jest-junit": "13.1.0",
         "mini-css-extract-plugin": "2.6.0",
         "mmjstool": "github:mattermost/mattermost-utilities#3b4506b0f6b14fbb402f9f8ef932370e459e3773",
-        "node-gyp": "10.0.1",
+        "node-gyp": "11.5.0",
         "node-loader": "2.0.0",
         "npm-run-all": "4.1.5",
         "patch-package": "8.0.0",
@@ -199,5 +200,14 @@
         "windows-focus-assist": "1.4.0",
         "winreg-utf8": "0.1.1",
         "yargs": "17.7.2"
+    },
+    "allowScripts": {
+        "@infomaniak/jitsi-meet-electron-sdk@6.0.12": true,
+        "@jitsi/robotjs@0.6.21": true,
+        "@sentry/cli@2.58.6": true,
+        "electron@37.6.1": true,
+        "fsevents@2.3.3": true,
+        "macos-notification-state@3.0.0": true,
+        "windows-focus-assist@1.4.0": true
     }
 }
