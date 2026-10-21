@@ -9,8 +9,8 @@
     "desktopName": "com.infomaniak.chat",
     "homepage": "https://infomaniak.com/kchat",
     "engines": {
-        "node": ">=18.0.0",
-        "npm": "^10 || ^11 || ^12"
+        "node": "^22.22.2 || ^24.15.0",
+        "npm": "^12"
     },
     "repository": {
         "type": "git",
