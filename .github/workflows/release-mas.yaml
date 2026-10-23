@@ -3,8 +3,8 @@ name: release-mas
 on:
   push:
     tags:
-      - "[0-9]+.[0-9]+.[0-9]+-alpha.[0-9]+"
       - "[0-9]+.[0-9]+.[0-9]+-beta.[0-9]+"
+      - "[0-9]+.[0-9]+.[0-9]+-rc.[0-9]+"
 
 defaults:
   run:
@@ -15,7 +15,7 @@ env:
   NPM_VERSION: "12.1.0"
   SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
   SENTRY_RELEASE: kChat@${{ github.ref_name }}
-  SENTRY_ENVIRONMENT: ${{ contains(github.ref_name, '-alpha') && 'alpha' || contains(github.ref_name, '-beta') && 'beta' || 'production' }}
+  SENTRY_ENVIRONMENT: ${{ contains(github.ref_name, '-beta') && 'beta' || contains(github.ref_name, '-rc') && 'rc' || 'production' }}
 
 jobs:
   begin-notification:
@@ -76,6 +76,7 @@ jobs:
 
   end-notification:
     needs: mac-app-store-preflight
+    if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     steps:
       - name: release/checkout-repo
@@ -83,5 +84,10 @@ jobs:
       - name: release/notify-channel
         env:
           RELEASE_WEBHOOK_URL: ${{ secrets.RELEASE_WEBHOOK_URL }}
+          MAS_RESULT: ${{ needs.mac-app-store-preflight.result }}
         run: |
-          bash scripts/kchat_notify.sh "[$GITHUB_REF_NAME] TestFlight release completed! Build is now available on App Store Connect."
+          if [[ "$MAS_RESULT" == "success" ]]; then
+            bash scripts/kchat_notify.sh "[$GITHUB_REF_NAME] TestFlight release completed! Build is now available on App Store Connect."
+          else
+            bash scripts/kchat_notify.sh ":warning: [$GITHUB_REF_NAME] TestFlight release FAILED (job: $MAS_RESULT). Check the workflow run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          fi

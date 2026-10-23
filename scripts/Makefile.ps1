@@ -526,7 +526,9 @@ function Run-BuildElectronNsis {
     Print-Info "Building nodejs/electron code (running npm run build)..."
     npm run build
     Print-Info "Packaging nodejs/electron for Windows NSIS (running npm run package:windows-nsis)..."
-    npm run package:windows-nsis -- --publish always
+    $ebChannelArgs = @()
+    if (![string]::IsNullOrEmpty($env:EB_CHANNEL_ARGS)) { $ebChannelArgs += ($env:EB_CHANNEL_ARGS -split ' ') }
+    npm run package:windows-nsis -- --publish always @ebChannelArgs
 }
 
 function Run-BuildElectronMsi {

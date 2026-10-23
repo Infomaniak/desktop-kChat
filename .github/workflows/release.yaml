@@ -4,13 +4,14 @@ on:
     push:
         tags:
             - "[0-9]+.[0-9]+.[0-9]+"
-            - "[0-9]+.[0-9]+.[0-9]+-beta.[0-9]+"
+            - "[0-9]+.[0-9]+.[0-9]+-rc.[0-9]+"
     workflow_dispatch:
 
 env:
     SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
     SENTRY_RELEASE: ${{ startsWith(github.ref, 'refs/tags/') && format('kChat@{0}', github.ref_name) || '' }}
-    SENTRY_ENVIRONMENT: ${{ github.ref_type == 'tag' && (contains(github.ref_name, '-alpha') && 'alpha' || contains(github.ref_name, '-beta') && 'beta' || 'production') || 'alpha' }}
+    SENTRY_ENVIRONMENT: ${{ github.ref_type == 'tag' && (contains(github.ref_name, '-beta') && 'beta' || contains(github.ref_name, '-rc') && 'rc' || 'production') || 'beta' }}
+    EB_CHANNEL_ARGS: ${{ contains(github.ref_name, '-rc') && '-c.publish.channel=beta' || '' }}
     NPM_VERSION: "12.1.0"
 
 jobs:
@@ -58,7 +59,7 @@ jobs:
                   SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
               run: |
                   mkdir -p ./build/linux
-                  npm run package:linux-appImage-x64 -- --publish always
+                  npm run package:linux-appImage-x64 -- --publish always $EB_CHANNEL_ARGS
                   bash -x ./scripts/cp_artifacts.sh release ./build/linux
             - name: release/upload-build
               uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3 # v4.3.1
@@ -98,7 +99,7 @@ jobs:
                   SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
               run: |
                   mkdir -p ./build/linux-arm
-                  npm run package:linux-appImage-arm -- --publish always
+                  npm run package:linux-appImage-arm -- --publish always $EB_CHANNEL_ARGS
                   bash -x ./scripts/cp_artifacts.sh release ./build/linux-arm
             - name: release/upload-build
               uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3 # v4.3.1
@@ -232,7 +233,7 @@ jobs:
           run: |
             VERSION="${GITHUB_REF_NAME}"
             RELEASE_TITLE="v${VERSION} ($(date -u "+%Y-%m-%d"))"
-            [[ $VERSION =~ "-beta" ]] || [[ $VERSION =~ "-alpha" ]] && PRERELEASE="--prerelease"
+            [[ $VERSION =~ "-rc" ]] && PRERELEASE="--prerelease"
             gh release create --draft ${PRERELEASE} --verify-tag --target "${GITHUB_SHA}" --title "${RELEASE_TITLE}" "${GITHUB_REF_NAME}" ./ghr-dist/*
 
     end-notification:

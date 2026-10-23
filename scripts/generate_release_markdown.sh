@@ -21,7 +21,7 @@ Release notes can be found here: https://docs.mattermost.com/install/desktop-app
 
 The download links can be found below.
 
-#### Windows - msi files (beta)
+#### Windows - msi files (rc)
 $(print_link "${BASE_URL}/kchat-desktop-${VERSION}-x64.msi")
 $(print_link "${BASE_URL}/kchat-desktop-${VERSION}-x86.msi")
 
@@ -31,7 +31,7 @@ $(print_link "${BASE_URL}/kchat-desktop-setup-${VERSION}-win.exe")
 #### Windows - zip files
 $(print_link "${BASE_URL}/kchat-desktop-${VERSION}-win32.zip")
 $(print_link "${BASE_URL}/kchat-desktop-${VERSION}-win64.zip")
-$(print_link "${BASE_URL}/kchat-desktop-${VERSION}-arm64.zip") (beta)
+$(print_link "${BASE_URL}/kchat-desktop-${VERSION}-arm64.zip") (rc)
 
 #### Mac
 $(print_link "${BASE_URL}/kchat-desktop-${VERSION}-mac-universal.dmg")
@@ -39,18 +39,18 @@ $(print_link "${BASE_URL}/kchat-desktop-${VERSION}-mac-x64.dmg")
 $(print_link "${BASE_URL}/kchat-desktop-${VERSION}-mac-m1.dmg")
 
 #### Linux
-$(print_link "${BASE_URL}/kchat-desktop-${VERSION}-linux-arm64.tar.gz") (beta)
+$(print_link "${BASE_URL}/kchat-desktop-${VERSION}-linux-arm64.tar.gz") (rc)
 $(print_link "${BASE_URL}/kchat-desktop-${VERSION}-linux-x64.tar.gz")
 
 #### Linux (Unofficial) - deb files
-$(print_link "${BASE_URL}/kchat-desktop_${VERSION}-1_arm64.deb") (beta)
+$(print_link "${BASE_URL}/kchat-desktop_${VERSION}-1_arm64.deb") (rc)
 $(print_link "${BASE_URL}/kchat-desktop_${VERSION}-1_amd64.deb")
 
-#### Linux (Unofficial) - rpm files (beta)
-$(print_link "${BASE_URL}/kchat-desktop-${VERSION}-linux-aarch64.rpm") (beta)
+#### Linux (Unofficial) - rpm files (rc)
+$(print_link "${BASE_URL}/kchat-desktop-${VERSION}-linux-aarch64.rpm") (rc)
 $(print_link "${BASE_URL}/kchat-desktop-${VERSION}-linux-x86_64.rpm")
 
 #### Linux (Unofficial) - AppImage files
-$(print_link "${BASE_URL}/kchat-desktop-${VERSION}-linux-arm64.AppImage") (beta)
+$(print_link "${BASE_URL}/kchat-desktop-${VERSION}-linux-arm64.AppImage") (rc)
 $(print_link "${BASE_URL}/kchat-desktop-${VERSION}-linux-x86_64.AppImage")
 MD
