@@ -30,7 +30,13 @@ En cas de doute entre deux niveaux, choisir le plus élevé.
 
 ## Ticket lié
 
-Dans le message du commit : `fixes <ID>` (ex. `fixes RM-123456` ou `fixes DESKTOP-1234`), mot-clé `fixes` requis (un lien seul ne suffit pas) => Sentry résoudra l'issue à la release suivante.
+<!-- Convention "Fixes <REF>" dans la DESCRIPTION de la MR (pas le message de
+     commit) : une ref déclenche la résolution seulement avec un mot-clé de
+     résolution (Fixes / Closes / Resolves, etc). Formats : Fixes DESKTOP-XXX
+     (short ID Sentry) ou Fixes RM-XXXXXX. Une URL nue sans mot-clé = simple
+     mention, aucune action. Multi-refs OK. -->
+
+Fixes DESKTOP-XXX
 
 <!-- IA : remplacer la ligne ci-dessous par UNE seule étiquette : review::quick, review::standard ou review::complex -->
 /label review::standard

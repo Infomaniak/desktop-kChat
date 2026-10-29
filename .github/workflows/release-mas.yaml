@@ -74,6 +74,15 @@ jobs:
     uses: ./.github/workflows/sentry-release.yaml
     secrets: inherit
 
+  sentry-resolve:
+    # Runs even if sentry-release fails (transient sentry-cli error on a
+    # beta tag: this workflow is the only resolver), but never when it was
+    # skipped, and never if cancelled.
+    if: ${{ !cancelled() && needs.sentry-release.result != 'skipped' }}
+    needs: sentry-release
+    uses: ./.github/workflows/sentry-resolve.yaml
+    secrets: inherit
+
   end-notification:
     needs: mac-app-store-preflight
     if: ${{ !cancelled() }}
