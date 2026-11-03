@@ -23,7 +23,7 @@ import electronBuilder from '../../../electron-builder.json';
 import ServerViewState from '../../app/serverViewState';
 import {CALL_ENDED, CALL_READY_TO_CLOSE, CALL_RING_CLOSE_WINDOW, CALL_RING_WINDOW_IS_OPEN} from '../../common/communication';
 import {Logger} from '../../common/log';
-import {isTrustedKmeetAuthURL, isTrustedKmeetURL, parseURL} from '../../common/utils/url';
+import {isOfficialKchatTenantURL, isTrustedKmeetAuthURL, isTrustedKmeetURL, parseURL} from '../../common/utils/url';
 import {composeUserAgent, getLocalPreload} from '../utils';
 import ViewManager from '../views/viewManager';
 
@@ -206,12 +206,22 @@ class KmeetCallWindow {
         }).catch(
             (reason) => {
                 log.error(`Call window failed to load: ${reason}`);
-                log.info(process.env);
             });
 
         this.callWindow.webContents.on('dom-ready', () => {
             this.callWindow!.moveTop();
-            this.callWindow!.webContents.send('load-server-url', `${currentServer.url.toString()}static/kmeet.js`);
+
+            const kmeetScriptURL = `${currentServer.url.toString()}static/kmeet.js`;
+            const parsedScriptURL = parseURL(kmeetScriptURL);
+
+            // Ik: never hand an untrusted script URL to the renderer — same allowlist as the
+            // renderer-side check (the shared kMeet origin or an official kChat tenant).
+            if (!parsedScriptURL || (!isTrustedKmeetURL(parsedScriptURL) && !isOfficialKchatTenantURL(parsedScriptURL))) {
+                log.error(`Refusing to load the call script from an untrusted origin: ${kmeetScriptURL}`);
+                return;
+            }
+
+            this.callWindow!.webContents.send('load-server-url', kmeetScriptURL);
         });
 
         // Ik: default-deny navigation — the call window is privileged, so only the local
