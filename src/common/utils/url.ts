@@ -4,7 +4,7 @@
 import {isHttpsUri, isHttpUri, isUri} from 'valid-url';
 
 import buildConfig from 'common/config/buildConfig';
-import {nonTeamUrlPaths, CALLS_PLUGIN_ID} from 'common/utils/constants';
+import {KMEET_ORIGIN, nonTeamUrlPaths, CALLS_PLUGIN_ID} from 'common/utils/constants';
 
 export const getFormattedPathName = (pn: string) => (pn.endsWith('/') ? pn : `${pn}/`);
 export const parseURL = (inputURL: string | URL) => {
@@ -47,6 +47,28 @@ export const isTrustedURL = (url: URL, rootURL: URL) => {
     }
     return (getFormattedPathName(rootParsedURL.pathname) !== '/' && equalUrlsWithSubpath(rootParsedURL, parsedURL)) ||
         (getFormattedPathName(rootParsedURL.pathname) === '/' && equalUrlsIgnoringSubpath(rootParsedURL, parsedURL));
+};
+
+// Ik: the privileged kMeet call window may only embed content from the kMeet origin.
+// Trust is origin-based (scheme + exact host) so a URL like
+// https://kmeet.infomaniak.com.evil.tld must not pass.
+export const isTrustedKmeetURL = (inputURL: URL) => {
+    const parsedURL = parseURL(inputURL);
+    if (!parsedURL) {
+        return false;
+    }
+    return parsedURL.protocol === 'https:' && parsedURL.host === KMEET_ORIGIN;
+};
+
+// Ik: SSO popups opened from the kMeet call window (Jitsi SDK 'infomaniak-auth'
+// popup flow: the webapp window.open()s the authorize URL, the SDK marks it
+// target 'electron').
+export const isTrustedKmeetAuthURL = (inputURL: URL) => {
+    const parsedURL = parseURL(inputURL);
+    if (!parsedURL) {
+        return false;
+    }
+    return parsedURL.protocol === 'https:' && parsedURL.host === 'login.infomaniak.com' && parsedURL.pathname.startsWith('/authorize');
 };
 
 export const isUrlType = (urlType: string, serverURL: URL, inputURL: URL) => {

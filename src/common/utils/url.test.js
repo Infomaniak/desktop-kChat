@@ -11,6 +11,8 @@ import {
     isInternalURL,
     isCallsPopOutURL,
     isTrustedURL,
+    isTrustedKmeetURL,
+    isTrustedKmeetAuthURL,
 } from 'common/utils/url';
 
 jest.mock('common/views/View', () => ({
@@ -29,6 +31,54 @@ describe('common/utils/url', () => {
             expect(getFormattedPathName(unformattedPathName)).toBe('/aAbBbB/cC/DdeR/');
         });
     });
+    describe('isTrustedKmeetURL', () => {
+        it('should accept the kMeet origin over https', () => {
+            expect(isTrustedKmeetURL(new URL('https://kmeet.infomaniak.com/external_api.js'))).toBe(true);
+        });
+
+        it('should accept a subpath of the kMeet origin', () => {
+            expect(isTrustedKmeetURL(new URL('https://kmeet.infomaniak.com/static/kmeet.js'))).toBe(true);
+        });
+
+        it('should reject http', () => {
+            expect(isTrustedKmeetURL(new URL('http://kmeet.infomaniak.com/static/kmeet.js'))).toBe(false);
+        });
+
+        it('should reject a lookalike host suffix', () => {
+            expect(isTrustedKmeetURL(new URL('https://kmeet.infomaniak.com.evil.tld/static/kmeet.js'))).toBe(false);
+        });
+
+        it('should reject a userinfo lookalike', () => {
+            expect(isTrustedKmeetURL(new URL('https://kmeet.infomaniak.com@evil.tld/'))).toBe(false);
+        });
+
+        it('should reject an unrelated origin', () => {
+            expect(isTrustedKmeetURL(new URL('https://evil.tld/static/kmeet.js'))).toBe(false);
+        });
+    });
+
+    describe('isTrustedKmeetAuthURL', () => {
+        it('should accept the kMeet SSO authorize popup', () => {
+            expect(isTrustedKmeetAuthURL(new URL('https://login.infomaniak.com/authorize?client_id=x'))).toBe(true);
+        });
+
+        it('should reject another path on the SSO host', () => {
+            expect(isTrustedKmeetAuthURL(new URL('https://login.infomaniak.com/oauth2/token'))).toBe(false);
+        });
+
+        it('should reject http', () => {
+            expect(isTrustedKmeetAuthURL(new URL('http://login.infomaniak.com/authorize'))).toBe(false);
+        });
+
+        it('should reject a lookalike host suffix', () => {
+            expect(isTrustedKmeetAuthURL(new URL('https://login.infomaniak.com.evil.tld/authorize'))).toBe(false);
+        });
+
+        it('should reject an unrelated origin', () => {
+            expect(isTrustedKmeetAuthURL(new URL('https://evil.tld/authorize'))).toBe(false);
+        });
+    });
+
     describe('parseURL', () => {
         it('should return the URL if it is already a URL', () => {
             const url = new URL('http://mattermost.com');

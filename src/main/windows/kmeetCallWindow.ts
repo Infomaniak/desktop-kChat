@@ -23,6 +23,7 @@ import electronBuilder from '../../../electron-builder.json';
 import ServerViewState from '../../app/serverViewState';
 import {CALL_ENDED, CALL_READY_TO_CLOSE, CALL_RING_CLOSE_WINDOW, CALL_RING_WINDOW_IS_OPEN} from '../../common/communication';
 import {Logger} from '../../common/log';
+import {isTrustedKmeetAuthURL, isTrustedKmeetURL, parseURL} from '../../common/utils/url';
 import {composeUserAgent, getLocalPreload} from '../utils';
 import ViewManager from '../views/viewManager';
 
@@ -213,6 +214,18 @@ class KmeetCallWindow {
             this.callWindow!.webContents.send('load-server-url', `${currentServer.url.toString()}static/kmeet.js`);
         });
 
+        // Ik: default-deny navigation — the call window is privileged, so only the local
+        // call page and the trusted kMeet origin may navigate its main frame.
+        this.callWindow.webContents.on('will-navigate', (event, url) => {
+            const parsedURL = parseURL(url);
+            if (parsedURL && (parsedURL.protocol === 'kchat-desktop:' || isTrustedKmeetURL(parsedURL))) {
+                return;
+            }
+
+            log.warn(`Prevented the call window from navigating to: ${url}`);
+            event.preventDefault();
+        });
+
         const windowOpenHandler = ({url, frameName}: {url: string; frameName: string}) => {
             // @ts-expect-error bad type from getPopupTarget
             const target = getPopupTarget(url, frameName);
@@ -225,7 +238,16 @@ class KmeetCallWindow {
             }
 
             if (target === 'electron') {
-                return {action: 'allow'};
+                // Ik: an Electron popup inherits the call window's context — only the trusted
+                // kMeet origin and the kMeet SSO authorize popup may open one. The Jitsi SDK's
+                // AlwaysOnTop window never reaches this branch (the SDK allows it itself).
+                const parsedURL = parseURL(url);
+                if (parsedURL && (isTrustedKmeetURL(parsedURL) || isTrustedKmeetAuthURL(parsedURL))) {
+                    return {action: 'allow'};
+                }
+
+                log.warn(`Prevented a popup from an untrusted origin in the call window: ${url}`);
+                return {action: 'deny'};
             }
 
             return {action: 'deny'};
