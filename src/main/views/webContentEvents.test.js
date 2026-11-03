@@ -36,7 +36,10 @@ jest.mock('main/windows/mainWindow', () => ({
     get: jest.fn(),
 }));
 jest.mock('../allowProtocolDialog', () => ({}));
-jest.mock('main/windows/callsWidgetWindow', () => ({}));
+jest.mock('main/windows/callsWidgetWindow', () => ({
+    isCallsWidget: jest.fn(() => false),
+    getViewURL: jest.fn(),
+}));
 jest.mock('main/views/viewManager', () => ({
     getViewByWebContentsId: jest.fn(),
     handleDeepLink: jest.fn(),
@@ -78,18 +81,44 @@ describe('main/views/webContentsEvents', () => {
         const webContentsEventManager = new WebContentsEventManager();
         const willNavigate = webContentsEventManager.generateWillNavigate(1);
 
-        afterEach(() => {
-            event.preventDefault.mockClear();
+        beforeEach(() => {
+            ViewManager.getViewByWebContentsId.mockImplementation((id) => {
+                if (id === 1) {
+                    return {view: {server: {url: new URL('http://server-1.com')}}};
+                }
+
+                return null;
+            });
         });
 
-        it('should allow navigation when url is valid', () => {
+        afterEach(() => {
+            event.preventDefault.mockClear();
+            ViewManager.getViewByWebContentsId.mockReset();
+        });
+
+        it('should allow navigation within the view server origin', () => {
             willNavigate(event, 'http://server-1.com/subpath');
             expect(event.preventDefault).not.toBeCalled();
         });
 
-        it('should allow navigation when url is an external valid URL', () => {
-            willNavigate(event, 'http://someotherurl.com');
+        it('should allow a login URL of the view server (SSO)', () => {
+            willNavigate(event, 'http://server-1.com/login/sso/saml');
             expect(event.preventDefault).not.toBeCalled();
+        });
+
+        it('should deny navigation to an external origin (view pivot)', () => {
+            willNavigate(event, 'http://someotherurl.com');
+            expect(event.preventDefault).toBeCalled();
+        });
+
+        it('should deny navigation to an external origin even from a server subpath', () => {
+            willNavigate(event, 'http://server-1.com.someotherurl.com/subpath');
+            expect(event.preventDefault).toBeCalled();
+        });
+
+        it('should deny navigation hiding the server origin in userinfo', () => {
+            willNavigate(event, 'http://server-1.com@someotherurl.com/subpath');
+            expect(event.preventDefault).toBeCalled();
         });
 
         it('should allow navigation when protocol is mailto', () => {
@@ -97,8 +126,19 @@ describe('main/views/webContentsEvents', () => {
             expect(event.preventDefault).not.toBeCalled();
         });
 
+        it('should deny navigation over a custom protocol', () => {
+            willNavigate(event, 'evilproto://someotherurl.com');
+            expect(event.preventDefault).toBeCalled();
+        });
+
         it('should prevent navigation when URL is not parseable', () => {
             willNavigate(event, 'a-bad<url');
+            expect(event.preventDefault).toBeCalled();
+        });
+
+        it('should deny any external navigation from an unknown view', () => {
+            const unknownViewNavigate = webContentsEventManager.generateWillNavigate(2);
+            unknownViewNavigate(event, 'http://someotherurl.com');
             expect(event.preventDefault).toBeCalled();
         });
     });

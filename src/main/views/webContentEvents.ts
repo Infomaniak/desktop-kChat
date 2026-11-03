@@ -8,11 +8,14 @@ import Config from 'common/config';
 import {Logger} from 'common/log';
 import ServerManager from 'common/servers/serverManager';
 import {
+    isCallsPopOutURL,
+    isChannelExportUrl,
     isAdminUrl,
     isHelpUrl,
     isImageProxyUrl,
     isInternalURL,
     isKmeetUrl,
+    isLoginUrl,
     isManagedResource,
     isPluginUrl,
     isPublicFilesUrl,
@@ -27,7 +30,7 @@ import ViewManager from 'main/views/viewManager';
 import CallsWidgetWindow from 'main/windows/callsWidgetWindow';
 import mainWindow from 'main/windows/mainWindow';
 
-import {generateHandleConsoleMessage, isCustomProtocol, isMattermostProtocol} from './webContentEventsCommon';
+import {generateHandleConsoleMessage, generateWillFrameNavigate, isCustomProtocol, isMattermostProtocol} from './webContentEventsCommon';
 
 import allowProtocolDialog from '../allowProtocolDialog';
 import {composeUserAgent, getLocalPreload} from '../utils';
@@ -78,12 +81,49 @@ export class WebContentsEventManager {
         return (event: Event, url: string) => {
             this.log(webContentsId).debug('will-navigate', url);
 
-            const parsedURL = parseURL(url);
-            if (!parsedURL || (parsedURL.protocol !== 'mailto:' && parsedURL.protocol !== 'http:' && parsedURL.protocol !== 'https:')) {
-                this.log(webContentsId).info(`Prevented desktop from navigating to: ${url}`);
-                event.preventDefault();
+            // Ik: default-deny — a compromised server page must not be able to navigate a
+            // trusted view to an arbitrary origin (the view pivot). Allow only the view's
+            // own server URL types, the calls pop-out, mailto: and the trusted pop-up.
+            if (this.shouldAllowNavigation(webContentsId, url)) {
+                return;
             }
+
+            this.log(webContentsId).info(`Prevented desktop from navigating to: ${url}`);
+            event.preventDefault();
         };
+    };
+
+    private shouldAllowNavigation = (webContentsId: number, navigationURL: string): boolean => {
+        const parsedURL = parseURL(navigationURL);
+        if (!parsedURL) {
+            return false;
+        }
+
+        if (parsedURL.protocol === 'mailto:') {
+            return true;
+        }
+
+        if (parsedURL.protocol !== 'http:' && parsedURL.protocol !== 'https:') {
+            return false;
+        }
+
+        const serverURL = this.getServerURLFromWebContentsId(webContentsId);
+        if (!serverURL) {
+            return false;
+        }
+
+        if (this.isTrustedPopupWindow(webContentsId)) {
+            return true;
+        }
+
+        // The URL-type helpers compare hosts through isInternalURL (exact host match), so
+        // URLs hiding the server origin in userinfo (https://server@evil/) or as a host
+        // suffix (https://server.evil/) cannot pass.
+        return isTeamUrl(serverURL, parsedURL) ||
+            isAdminUrl(serverURL, parsedURL) ||
+            isLoginUrl(serverURL, parsedURL) ||
+            isChannelExportUrl(serverURL, parsedURL) ||
+            Boolean(CallsWidgetWindow.callID && isCallsPopOutURL(serverURL, parsedURL, CallsWidgetWindow.callID));
     };
 
     private denyNewWindow = (details: Electron.HandlerDetails): {action: 'deny' | 'allow'} => {
@@ -277,7 +317,12 @@ export class WebContentsEventManager {
         }
 
         const willNavigate = this.generateWillNavigate(contents.id);
+        const willFrameNavigate = generateWillFrameNavigate(this.log(contents.id));
         contents.on('will-navigate', willNavigate);
+
+        // Ik: nested frames must not become an escape hatch around the main-frame
+        // navigation policy — subframes may only navigate over http(s).
+        contents.on('will-frame-navigate', willFrameNavigate);
 
         const spellcheck = Config.useSpellChecker;
         const newWindow = this.generateNewWindowListener(contents.id, spellcheck);
@@ -295,6 +340,7 @@ export class WebContentsEventManager {
         const removeWebContentsListeners = () => {
             try {
                 contents.removeListener('will-navigate', willNavigate);
+                contents.removeListener('will-frame-navigate', willFrameNavigate);
                 contents.removeListener('console-message', consoleMessage);
                 removeListeners?.(contents);
             } catch (e) {
