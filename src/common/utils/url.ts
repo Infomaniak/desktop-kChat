@@ -4,7 +4,7 @@
 import {isHttpsUri, isHttpUri, isUri} from 'valid-url';
 
 import buildConfig from 'common/config/buildConfig';
-import {KMEET_ORIGIN, nonTeamUrlPaths, CALLS_PLUGIN_ID} from 'common/utils/constants';
+import {CALLS_PLUGIN_ID, KMEET_ORIGIN, nonTeamUrlPaths, OFFICIAL_KCHAT_TENANT_SUFFIXES} from 'common/utils/constants';
 
 export const getFormattedPathName = (pn: string) => (pn.endsWith('/') ? pn : `${pn}/`);
 export const parseURL = (inputURL: string | URL) => {
@@ -69,6 +69,17 @@ export const isTrustedKmeetAuthURL = (inputURL: URL) => {
         return false;
     }
     return parsedURL.protocol === 'https:' && parsedURL.host === 'login.infomaniak.com' && parsedURL.pathname.startsWith('/authorize');
+};
+
+// Ik: official kChat tenant origins (e.g. https://myteam.kchat.infomaniak.com) — trusted to
+// serve call scripts/stylesheets. The suffix match is dot-anchored on the validated host so
+// kchat.infomaniak.com.evil.tld and evilkchat.infomaniak.com must not pass.
+export const isOfficialKchatTenantURL = (inputURL: URL) => {
+    const parsedURL = parseURL(inputURL);
+    if (!parsedURL || parsedURL.protocol !== 'https:') {
+        return false;
+    }
+    return OFFICIAL_KCHAT_TENANT_SUFFIXES.some((suffix) => parsedURL.host === suffix || parsedURL.host.endsWith(`.${suffix}`));
 };
 
 export const isUrlType = (urlType: string, serverURL: URL, inputURL: URL) => {

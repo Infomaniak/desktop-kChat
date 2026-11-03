@@ -39,6 +39,14 @@ export const CALLS_PLUGIN_ID = 'com.mattermost.calls';
 // Build with KCHAT_PREPROD=true to use the preprod kMeet.
 export const KMEET_ORIGIN = isPreprod ? 'kmeet.preprod.dev.infomaniak.ch' : 'kmeet.infomaniak.com';
 
+// Ik: official kChat tenant hosts (e.g. https://myteam.kchat.infomaniak.com) — the only
+// origins allowed to serve call scripts/stylesheets into the privileged call window.
+// The preprod variant mirrors the preprod base URL from ikConfig (devServerUrl); exact
+// list to be confirmed with infra before narrowing the script pin to a single origin.
+export const OFFICIAL_KCHAT_TENANT_SUFFIXES = isPreprod ?
+    ['kchat.preprod.dev.infomaniak.ch', 'kchat.infomaniak.com'] :
+    ['kchat.infomaniak.com'];
+
 export const DOWNLOADS_DROPDOWN_HEIGHT = 360;
 export const DOWNLOADS_DROPDOWN_WIDTH = 280;
 export const DOWNLOADS_DROPDOWN_PADDING = 24;

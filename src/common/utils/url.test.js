@@ -13,6 +13,7 @@ import {
     isTrustedURL,
     isTrustedKmeetURL,
     isTrustedKmeetAuthURL,
+    isOfficialKchatTenantURL,
 } from 'common/utils/url';
 
 jest.mock('common/views/View', () => ({
@@ -76,6 +77,36 @@ describe('common/utils/url', () => {
 
         it('should reject an unrelated origin', () => {
             expect(isTrustedKmeetAuthURL(new URL('https://evil.tld/authorize'))).toBe(false);
+        });
+    });
+
+    describe('isOfficialKchatTenantURL', () => {
+        it('should accept an official tenant origin', () => {
+            expect(isOfficialKchatTenantURL(new URL('https://monkchat.kchat.infomaniak.com/static/kmeet.js'))).toBe(true);
+        });
+
+        it('should accept the base tenant host', () => {
+            expect(isOfficialKchatTenantURL(new URL('https://kchat.infomaniak.com/'))).toBe(true);
+        });
+
+        it('should reject http', () => {
+            expect(isOfficialKchatTenantURL(new URL('http://monkchat.kchat.infomaniak.com/'))).toBe(false);
+        });
+
+        it('should reject a lookalike host suffix', () => {
+            expect(isOfficialKchatTenantURL(new URL('https://monkchat.kchat.infomaniak.com.evil.tld/'))).toBe(false);
+        });
+
+        it('should reject a prefix lookalike without a dot boundary', () => {
+            expect(isOfficialKchatTenantURL(new URL('https://evilkchat.infomaniak.com/'))).toBe(false);
+        });
+
+        it('should reject a userinfo lookalike', () => {
+            expect(isOfficialKchatTenantURL(new URL('https://kchat.infomaniak.com@evil.tld/'))).toBe(false);
+        });
+
+        it('should reject an unrelated origin', () => {
+            expect(isOfficialKchatTenantURL(new URL('https://evil.tld/'))).toBe(false);
         });
     });
 
