@@ -280,8 +280,6 @@ class KmeetCallWindow {
         const mainWindow = MainWindow.get();
         const currentServer = ServerViewState!.getCurrentServer();
 
-        // log.info('callInfo', callInfo);
-
         if (!mainWindow || !currentServer) {
             log.error('Main window does not exist');
             return;
