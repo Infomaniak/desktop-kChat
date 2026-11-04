@@ -336,6 +336,27 @@ class KmeetCallWindow {
             frame.executeJavaScript(kmeetFrameBridgeScript).catch((error) => log.warn('kmeet bridge injection failed:', error));
         });
 
+        // Ik: the kMeet app keeps a mirror <video> (pipVideo) whose stream drives the
+        // native Chromium picture-in-picture. The SDK 6.x always-on-top window is gone,
+        // so minimizing the call window hands the video to a floating native PiP window
+        // instead; restoring the window closes it. executeJavaScript with
+        // userGesture=true mirrors the SDK's own main-process PiP path (a minimize has
+        // no user activation, which the element PiP API otherwise requires).
+        this.callWindow.on('minimize', () => {
+            const kmeetFrame = this.callWindow?.webContents.mainFrame.frames.find((frame) => frame.name.startsWith('jitsiConferenceFrame'));
+            kmeetFrame?.executeJavaScript(
+                'window.JitsiMeetJS?.app?.electron?.requestPictureInPicture?.()',
+                true,
+            ).catch((error) => log.warn('kmeet PiP trigger on minimize failed:', error));
+        });
+        this.callWindow.on('restore', () => {
+            const kmeetFrame = this.callWindow?.webContents.mainFrame.frames.find((frame) => frame.name.startsWith('jitsiConferenceFrame'));
+            kmeetFrame?.executeJavaScript(
+                'document.exitPictureInPicture?.()',
+                true,
+            ).catch((error) => log.warn('kmeet PiP close on restore failed:', error));
+        });
+
         if (withDevTools) {
             this.callWindow.webContents.openDevTools({mode: 'detach'});
         }
