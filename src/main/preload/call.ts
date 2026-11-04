@@ -6,13 +6,13 @@
 // @ts-nocheck
 'use strict';
 
-import {
-    setupScreenSharingRender,
-    setupAlwaysOnTopRender,
-    RemoteDraw,
-    initPopupsConfigurationRender,
-    setupPowerMonitorRender,
-} from '@infomaniak/jitsi-meet-electron-sdk';
+// Ik: installs the `window.jitsiElectronSDK` contextBridge surface on the page's
+// main world (pip, powermonitor, remotedraw, screensharing fragments). The
+// renderer-side SDK hooks that consumed it in earlier SDK versions are gone from
+// the preload: the isolated world cannot run them, the screensharing source flow
+// is served by the kmeet frame bridge below until the external API moves to the
+// page main world.
+import {install as installSdkBridge} from '@infomaniak/jitsi-meet-electron-sdk/preload';
 import {contextBridge, ipcRenderer} from 'electron';
 import type {
     JitsiMeetExternalAPIConstructor,
@@ -25,6 +25,9 @@ import type {
 import {CALL_ENDED, CALL_READY_TO_CLOSE} from 'common/communication';
 import {KMEET_ORIGIN} from 'common/utils/constants';
 import JitsiMeetExternalAPI from 'common/utils/external_api';
+
+// Ik: expose the SDK bridge on the page main world before any page script runs.
+installSdkBridge();
 
 const whitelistedIpcChannels = [
     'protocol-data-msg',
@@ -105,12 +108,7 @@ function setupRenderer(selector: string, callInfo: CallInfo) {
 
     api = new (JitsiMeetExternalAPI as JitsiMeetExternalAPIConstructor)(KMEET_ORIGIN, options);
 
-    initPopupsConfigurationRender(api);
-    setupScreenSharingRender(api);
-    setupAlwaysOnTopRender(api);
-    setupPowerMonitorRender(api);
-
-    new RemoteDraw(api); // eslint-disable-line no-new
+    setupKmeetScreenShareBridge(api);
 
     api.executeCommand('avatarUrl', callInfo.avatar);
 
@@ -133,12 +131,82 @@ const onErrorOccurred = ({error}: Parameters<ExternalAPIEventCallbacks['errorOcc
     }
 };
 
-// ik: legacy lint error
-/* eslint-disable */
+// Ik: the kMeet frame asks the host for desktop sources (and macOS capture
+// permissions) through window.JitsiMeetElectron — historically injected by the SDK
+// with a cross-origin write that cannot work with contextIsolation + webSecurity on.
+// The bridge lives in the preload (isolated world): requests arrive as window
+// messages from the kMeet frame, are routed to fixed IPC channels and answered back
+// to the frame that asked. Only the Jitsi iframe of the trusted kMeet origin may ask,
+// and only these fixed channels are reachable.
+const kmeetScreenShareChannels = {
+    'get-sources': 'jitsi-screen-sharing-get-sources',
+    'screen-permissions': 'screen-share-permissions',
+    'open-screen-permission-settings': 'open-screen-permission-settings',
+    'open-permission-settings': 'open-permission-settings',
+};
+
+// Ik: ipc results may embed Electron values (NativeImage thumbnails of the desktop
+// sources) that structured-clone cannot cross a postMessage boundary — keep plain
+// data, turning images into data URLs so previews still work.
+function sanitizeForBridge(value: unknown): unknown {
+    if (value === null || typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+        return value;
+    }
+    if (value && typeof value === 'object' && typeof (value as {toDataURL?: unknown}).toDataURL === 'function') {
+        try {
+            return (value as {toDataURL: () => string}).toDataURL();
+        } catch {
+            return undefined;
+        }
+    }
+    if (Array.isArray(value)) {
+        return value.map((entry) => sanitizeForBridge(entry) ?? null);
+    }
+    if (value && typeof value === 'object') {
+        const out: Record<string, unknown> = {};
+        for (const [key, entry] of Object.entries(value as Record<string, unknown>)) {
+            const sanitized = sanitizeForBridge(entry);
+            if (sanitized !== undefined) {
+                out[key] = sanitized;
+            }
+        }
+        return out;
+    }
+    return undefined;
+}
+
+function setupKmeetScreenShareBridge(apiInstance: _JitsiMeetExternalAPI) {
+    const iframeWindow = (apiInstance.getIFrame() as unknown as HTMLIFrameElement).contentWindow;
+
+    window.addEventListener('message', (event) => {
+        const data = event.data as {__kmeetBridge?: string; id?: string; kind?: string; payload?: unknown} | null;
+        if (!data || data.__kmeetBridge !== 'request' || !data.id || !data.kind) {
+            return;
+        }
+
+        // only the kMeet frame may drive these channels
+        if (!iframeWindow || event.source !== iframeWindow) {
+            return;
+        }
+
+        const channel = kmeetScreenShareChannels[data.kind as keyof typeof kmeetScreenShareChannels];
+        if (!channel) {
+            return;
+        }
+
+        ipcRenderer.invoke(channel, data.payload).then(
+            (result) => event.source?.postMessage({__kmeetBridge: 'reply', id: data.id, result: sanitizeForBridge(result)}, '*'),
+            (error) => event.source?.postMessage({__kmeetBridge: 'reply', id: data.id, error: String((error as Error)?.message ?? error)}, '*'),
+        );
+    });
+}
+
 // Ik: exposed through the contextBridge so the call window can run with
 // contextIsolation: true and no nodeIntegration — the page only sees this
 // narrow surface, everything else (SDK modules, ipcRenderer) stays in the
 // isolated preload world.
+// ik: legacy lint error
+/* eslint-disable */
 contextBridge.exposeInMainWorld('jitsiNodeAPI', {
 
     // Ik: feature-detection flag for the webapp — the desktop resolves the

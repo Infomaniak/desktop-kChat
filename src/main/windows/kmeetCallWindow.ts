@@ -7,14 +7,14 @@
 import url from 'url';
 
 import {
-    initPopupsConfigurationMain,
-    setupAlwaysOnTopMain,
-    setupPowerMonitorMain,
-    setupScreenSharingMain,
     getPopupTarget,
-    RemoteDrawMain,
-} from '@infomaniak/jitsi-meet-electron-sdk';
-import {app, BrowserWindow, ipcMain, shell, systemPreferences} from 'electron';
+    initPopupsConfigurationMain,
+    setupPictureInPictureMain,
+    setupPowerMonitorMain,
+    setupRemoteDrawMain,
+    setupScreenSharingMain,
+} from '@infomaniak/jitsi-meet-electron-sdk/main';
+import {app, BrowserWindow, ipcMain, shell, systemPreferences, webFrameMain} from 'electron';
 
 import CallDialingWindow from './callDialingWindow';
 import MainWindow from './mainWindow';
@@ -152,6 +152,56 @@ function openScreenSettings(anchor?: ApplePrivacyAnchor) {
     return shell.openExternal(link);
 }
 
+// Ik: the screensharing bridge the kMeet app expects at window.JitsiMeetElectron
+// (same surface as the SDK's render hook), relayed over window messages to the call
+// window preload, which owns the IPC channels. Injected from the main process into
+// the kMeet frame because the SDK's cross-origin write cannot survive
+// contextIsolation + webSecurity.
+const kmeetFrameBridgeScript = `
+(() => {
+    if (window.JitsiMeetElectron) {
+        return;
+    }
+    let seq = 0;
+    const pending = new Map();
+    window.addEventListener('message', (event) => {
+        const data = event.data;
+        if (!data || data.__kmeetBridge !== 'reply' || !data.id || !pending.has(data.id)) {
+            return;
+        }
+        const entry = pending.get(data.id);
+        pending.delete(data.id);
+        if (data.error) {
+            entry.reject(new Error(String(data.error)));
+        } else {
+            entry.resolve(data.result);
+        }
+    });
+    const request = (kind, payload) => new Promise((resolve, reject) => {
+        const id = String(Date.now()) + '-' + (seq++);
+        pending.set(id, {resolve, reject});
+        window.parent.postMessage({__kmeetBridge: 'request', id, kind, payload}, '*');
+        setTimeout(() => {
+            if (pending.has(id)) {
+                pending.delete(id);
+                reject(new Error('kmeet bridge timeout: ' + kind));
+            }
+        }, 30000);
+    });
+    window.JitsiMeetElectron = {
+        obtainDesktopStreams: (callback, errorCallback, options) => request('get-sources', options).then((result) => {
+            // Ik: thumbnails cross the postMessage relay as data-URL strings — restore
+            // the SDK's NativeImage-like surface the app expects ({toDataURL()}).
+            const sources = (result || []).map((source) => (typeof source.thumbnail === 'string' ? {...source, thumbnail: {toDataURL: () => source.thumbnail}} : source));
+            callback(sources);
+        }).catch((error) => errorCallback(error)),
+        getScreenPermissions: (callback, errorCallback) => request('screen-permissions').then((result) => callback(result)).catch((error) => errorCallback(error)),
+        openMacScreenPermissionSettings: (callback, errorCallback) => request('open-screen-permission-settings').then((result) => callback && callback(result)).catch((error) => errorCallback && errorCallback(error)),
+        openMacPermissionSettings: (callback, errorCallback, anchor) => request('open-permission-settings', anchor).then((result) => callback && callback(result)).catch((error) => errorCallback && errorCallback(error)),
+    };
+})();
+`;
+
 class KmeetCallWindow {
     private callWindow?: BrowserWindow;
     private callInfo?: CallInfo;
@@ -237,11 +287,9 @@ class KmeetCallWindow {
             event.preventDefault();
         });
 
-        const windowOpenHandler = ({url, frameName}: {url: string; frameName: string}) => {
-            // @ts-expect-error bad type from getPopupTarget
+        const windowOpenHandler = ({url, frameName}: {url: string; frameName: string}): Electron.WindowOpenHandlerResponse => {
             const target = getPopupTarget(url, frameName);
 
-            // @ts-expect-error bad type from getPopupTarget
             if (!target || target === 'browser') {
                 openExternalLink(url);
 
@@ -250,8 +298,7 @@ class KmeetCallWindow {
 
             if (target === 'electron') {
                 // Ik: an Electron popup inherits the call window's context — only the trusted
-                // kMeet origin and the kMeet SSO authorize popup may open one. The Jitsi SDK's
-                // AlwaysOnTop window never reaches this branch (the SDK allows it itself).
+                // kMeet origin and the kMeet SSO authorize popup may open one.
                 const parsedURL = parseURL(url);
                 if (parsedURL && (isTrustedKmeetURL(parsedURL) || isTrustedKmeetAuthURL(parsedURL))) {
                     return {action: 'allow'};
@@ -265,12 +312,29 @@ class KmeetCallWindow {
         };
 
         initPopupsConfigurationMain(this.callWindow);
-        setupAlwaysOnTopMain(this.callWindow, null, windowOpenHandler);
+        this.callWindow.webContents.setWindowOpenHandler(windowOpenHandler);
         setupPowerMonitorMain(this.callWindow);
         setupScreenSharingMain(this.callWindow, app.getName(), electronBuilder.appId);
-        new RemoteDrawMain(this.callWindow); // eslint-disable-line no-new
+        setupRemoteDrawMain(this.callWindow);
+        setupPictureInPictureMain(this.callWindow);
 
         const withDevTools = Boolean(process.env.MM_DEBUG_SETTINGS) || false;
+
+        // Ik: the kMeet frame expects window.JitsiMeetElectron (the SDK's screensharing
+        // bridge). The SDK injects it with a cross-origin write that cannot survive
+        // contextIsolation + webSecurity on, so the main process injects an equivalent
+        // bridge whose calls are relayed to the preload over window messages.
+        this.callWindow.webContents.on('did-frame-finish-load', (_event, isMainFrame, frameProcessId, frameRoutingId) => {
+            if (isMainFrame) {
+                return;
+            }
+            const frame = webFrameMain.fromId(frameProcessId, frameRoutingId);
+            const frameURL = frame ? parseURL(frame.url) : undefined;
+            if (!frame || !frameURL || !isTrustedKmeetURL(frameURL)) {
+                return;
+            }
+            frame.executeJavaScript(kmeetFrameBridgeScript).catch((error) => log.warn('kmeet bridge injection failed:', error));
+        });
 
         if (withDevTools) {
             this.callWindow.webContents.openDevTools({mode: 'detach'});
