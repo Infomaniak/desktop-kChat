@@ -192,9 +192,14 @@ class KmeetCallWindow {
                 contextIsolation: true,
 
                 // Ik: the preload exposes jitsiNodeAPI through the contextBridge and the
-                // injected kmeet.js uses no Node APIs — nodeIntegration is gone. This
-                // webSecurity remains for the Jitsi SDK cross-origin iframes (powermonitor,
-                // remotedraw); tracked for a separate A/B evaluation.
+                // injected kmeet.js uses no Node APIs — nodeIntegration is gone.
+                //
+                // webSecurity: false is load-bearing: the SDK render modules attach to the
+                // cross-origin Jitsi iframe window (screensharing writes
+                // contentWindow.JitsiMeetElectron, powermonitor/remotedraw/popupsconfig add
+                // cross-origin window listeners), which the same-origin policy blocks.
+                // Removal requires patching the SDK to a postMessage bridge — tracked in
+                // docs/security/electron-security-hardening.md §4.
                 webSecurity: false,
             },
         });
