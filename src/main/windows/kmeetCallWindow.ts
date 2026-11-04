@@ -14,7 +14,7 @@ import {
     setupRemoteDrawMain,
     setupScreenSharingMain,
 } from '@infomaniak/jitsi-meet-electron-sdk/main';
-import {app, BrowserWindow, desktopCapturer, ipcMain, shell, systemPreferences, webFrameMain} from 'electron';
+import {app, BrowserWindow, ipcMain, shell, systemPreferences, webFrameMain} from 'electron';
 
 import CallDialingWindow from './callDialingWindow';
 import MainWindow from './mainWindow';
@@ -322,31 +322,6 @@ class KmeetCallWindow {
         setupScreenSharingMain(this.callWindow, app.getName(), electronBuilder.appId);
         setupRemoteDrawMain(this.callWindow);
         setupPictureInPictureMain(this.callWindow);
-
-        // Ik: the 6.1.x SDK answers getDisplayMedia through its page-side picker hook,
-        // which we cannot run (the external API lives in the isolated world). Use the
-        // native macOS system picker (macOS 15+) when available; on older systems the
-        // handler below auto-answers with the primary display. This replaces the SDK's
-        // own GDM handler.
-        this.callWindow.webContents.session.setDisplayMediaRequestHandler((_request, cb) => {
-            const callback = cb as unknown as (s: Electron.Streams | null) => void;
-            const callWindow = this.callWindow;
-            if (!callWindow || callWindow.isDestroyed()) {
-                callback(null);
-                return;
-            }
-            log.info('kmeet GDM: auto-answering with primary display');
-            desktopCapturer.getSources({types: ['screen']}).then((sources) => {
-                if (!sources.length) {
-                    callback(null);
-                    return;
-                }
-                callback({video: sources[0]});
-            }).catch((error) => {
-                log.warn('kmeet GDM auto-answer failed:', error);
-                callback(null);
-            });
-        }, {useSystemPicker: true});
 
         const withDevTools = Boolean(process.env.MM_DEBUG_SETTINGS) || false;
 
