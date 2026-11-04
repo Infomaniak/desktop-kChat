@@ -13,7 +13,7 @@ import {
     initPopupsConfigurationRender,
     setupPowerMonitorRender,
 } from '@infomaniak/jitsi-meet-electron-sdk';
-import {ipcRenderer} from 'electron';
+import {contextBridge, ipcRenderer} from 'electron';
 import type {
     JitsiMeetExternalAPIConstructor,
     ExternalAPIEventCallbacks,
@@ -72,12 +72,17 @@ let api: _JitsiMeetExternalAPI | undefined;
 /**
  * Setup the renderer process.
  *
- * @param {*} api - API object.
- * @param {*} options - Options for what to enable.
+ * @param {*} selector - CSS selector of the container element (the webapp passes a
+ * selector string because the contextBridge can only copy plain values).
+ * @param {*} callInfo - Call info object.
  * @returns {void}
  */
-function setupRenderer(parentNode: Element, callInfo: CallInfo) {
-    console.log('callInfo', callInfo);
+function setupRenderer(selector: string, callInfo: CallInfo) {
+    const parentNode = document.querySelector(selector);
+    if (!parentNode) {
+        throw new Error(`kmeet: setupRenderer container not found for selector: ${selector}`);
+    }
+
     const options: ExternalAPIOptions = {
         width: '100%',
         height: '100%',
@@ -130,10 +135,20 @@ const onErrorOccurred = ({error}: Parameters<ExternalAPIEventCallbacks['errorOcc
 
 // ik: legacy lint error
 /* eslint-disable */
-window.jitsiNodeAPI = {
+// Ik: exposed through the contextBridge so the call window can run with
+// contextIsolation: true and no nodeIntegration — the page only sees this
+// narrow surface, everything else (SDK modules, ipcRenderer) stays in the
+// isolated preload world.
+contextBridge.exposeInMainWorld('jitsiNodeAPI', {
+
+    // Ik: feature-detection flag for the webapp — the desktop resolves the
+    // container itself from the selector (a DOM element cannot cross the bridge).
+    setupRendererAcceptsSelector: true,
 
     // @ts-expect-error legacy type error
-    setupRenderer,
+    setupRenderer: (selector: string, callInfo: CallInfo) => {
+        setupRenderer(selector, callInfo);
+    },
 
     // @ts-expect-error legacy type error
     getCallInfo: () => ipcRenderer.invoke('get-call-info'),
@@ -162,6 +177,6 @@ window.jitsiNodeAPI = {
             return ipcRenderer.removeListener(channel, listener);
         },
     },
-};
+});
 /* eslint-disable */
 
