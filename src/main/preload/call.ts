@@ -109,6 +109,7 @@ function setupRenderer(selector: string, callInfo: CallInfo) {
     api = new (JitsiMeetExternalAPI as JitsiMeetExternalAPIConstructor)(KMEET_ORIGIN, options);
 
     setupKmeetScreenShareBridge(api);
+    setupKmeetScreenSharePicker(api);
 
     api.executeCommand('avatarUrl', callInfo.avatar);
 
@@ -197,6 +198,67 @@ function setupKmeetScreenShareBridge(apiInstance: _JitsiMeetExternalAPI) {
         ipcRenderer.invoke(channel, data.payload).then(
             (result) => event.source?.postMessage({__kmeetBridge: 'reply', id: data.id, result: sanitizeForBridge(result)}, '*'),
             (error) => event.source?.postMessage({__kmeetBridge: 'reply', id: data.id, error: String((error as Error)?.message ?? error)}, '*'),
+        );
+    });
+}
+
+// Ik: 6.1.x screensharing protocol relay. The SDK's page-side picker hook cannot run
+// here (the external API lives in this isolated world), so the preload wires the flow:
+// when the main process starts a getDisplayMedia request it asks the page for a picker,
+// we forward it to the kMeet app over the external API transport
+// (open-desktop-picker request → the app opens its own source picker), the app then
+// asks for the source list through the _request-desktop-sources transport request which
+// we answer from the SDK get-sources channel, and the app's selection comes back as the
+// picker request response, relayed to the main process as do-gdm.
+const kmeetGdmMarkerChannel = 'jitsi-screen-sharing-marker';
+const kmeetGdmGetSourcesChannel = 'jitsi-screen-sharing-get-sources';
+
+function sanitizeSourcesForApp(sources: Array<Record<string, unknown>>): Array<Record<string, unknown>> {
+    return sources.map((source) => {
+        const thumbnail = source.thumbnail as {toDataURL?: () => string} | undefined;
+        const dataUrl = typeof thumbnail?.toDataURL === 'function' ? thumbnail.toDataURL() : undefined;
+
+        // The kMeet picker reads either `thumbnailURL` (legacy shape) or
+        // `thumbnail.dataUrl` (6.1.x bridge shape); expose both.
+        return {
+            ...source,
+            thumbnailURL: dataUrl,
+            thumbnail: dataUrl ? {dataUrl} : undefined,
+        };
+    });
+}
+
+type KmeetApiTransport = {
+    on: (event: string, listener: (payload: unknown, callback: unknown) => void) => void;
+    sendRequest: (request: {name: string}) => Promise<Record<string, unknown>>;
+};
+
+function setupKmeetScreenSharePicker(apiInstance: _JitsiMeetExternalAPI) {
+    const transport = (apiInstance as unknown as {_transport: KmeetApiTransport})._transport;
+
+    // The kMeet picker asks for the source list over the external API transport.
+    transport.on('request', (payload, respond) => {
+        const request = payload as {name?: string; options?: unknown} | null;
+        if (request?.name !== '_request-desktop-sources') {
+            return;
+        }
+        const options = request.options ?? {types: ['screen', 'window'], thumbnailSize: {width: 320, height: 180}};
+        ipcRenderer.invoke(kmeetGdmGetSourcesChannel, options).then(
+            (sources) => (respond as unknown as (r: unknown) => void)({sources: sanitizeSourcesForApp(sources)}),
+            (error) => (respond as unknown as (r: unknown) => void)({error: String((error as Error)?.message ?? error)}),
+        );
+    });
+
+    // The main process signals that a getDisplayMedia request waits for a source.
+    ipcRenderer.on(kmeetGdmMarkerChannel, (_event, payload) => {
+        const marker = payload as {data?: {name?: string; requestId?: number}} | null;
+        if (marker?.data?.name !== 'open-picker' || typeof marker.data.requestId !== 'number') {
+            return;
+        }
+        const {requestId} = marker.data;
+        transport.sendRequest({name: 'open-desktop-picker'}).then(
+            (result) => ipcRenderer.send(kmeetGdmMarkerChannel, {data: {name: 'do-gdm', requestId, ...result}}),
+            () => ipcRenderer.send(kmeetGdmMarkerChannel, {data: {name: 'do-gdm', requestId, source: null}}),
         );
     });
 }
