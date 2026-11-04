@@ -4,6 +4,7 @@
 import {isHttpsUri, isHttpUri, isUri} from 'valid-url';
 
 import buildConfig from 'common/config/buildConfig';
+import {isPreprod} from 'common/config/ikConfig';
 import {CALLS_PLUGIN_ID, KMEET_ORIGIN, nonTeamUrlPaths, OFFICIAL_KCHAT_TENANT_SUFFIXES} from 'common/utils/constants';
 
 export const getFormattedPathName = (pn: string) => (pn.endsWith('/') ? pn : `${pn}/`);
@@ -62,13 +63,17 @@ export const isTrustedKmeetURL = (inputURL: URL) => {
 
 // Ik: SSO popups opened from the kMeet call window (Jitsi SDK 'infomaniak-auth'
 // popup flow: the webapp window.open()s the authorize URL, the SDK marks it
-// target 'electron').
+// target 'electron') AND the webapp login flow, which navigates the view top-level
+// to the same platform auth origin. Preprod builds target the preprod auth origin
+// (same build flag as KMEET_ORIGIN / the official tenant allowlist).
+const ikAuthOriginHost = isPreprod ? 'login.preprod.dev.infomaniak.ch' : 'login.infomaniak.com';
+
 export const isTrustedKmeetAuthURL = (inputURL: URL) => {
     const parsedURL = parseURL(inputURL);
     if (!parsedURL) {
         return false;
     }
-    return parsedURL.protocol === 'https:' && parsedURL.host === 'login.infomaniak.com' && parsedURL.pathname.startsWith('/authorize');
+    return parsedURL.protocol === 'https:' && parsedURL.host === ikAuthOriginHost && parsedURL.pathname.startsWith('/authorize');
 };
 
 // Ik: official kChat tenant origins (e.g. https://myteam.kchat.infomaniak.com) — trusted to
