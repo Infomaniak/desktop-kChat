@@ -13,6 +13,7 @@
 // is served by the kmeet frame bridge below until the external API moves to the
 // page main world.
 import {install as installSdkBridge} from '@infomaniak/jitsi-meet-electron-sdk/preload';
+import {setupRemoteDrawRender} from '@infomaniak/jitsi-meet-electron-sdk/renderer';
 import {contextBridge, ipcRenderer} from 'electron';
 import type {
     JitsiMeetExternalAPIConstructor,
@@ -110,6 +111,7 @@ function setupRenderer(selector: string, callInfo: CallInfo) {
 
     setupKmeetScreenShareBridge(api);
     setupKmeetScreenSharePicker(api);
+    setupKmeetRemoteDraw(api);
 
     api.executeCommand('avatarUrl', callInfo.avatar);
 
@@ -267,6 +269,43 @@ function setupKmeetScreenSharePicker(apiInstance: _JitsiMeetExternalAPI) {
             () => ipcRenderer.send(kmeetGdmMarkerChannel, {data: {name: 'do-gdm', requestId, source: null}}),
         );
     });
+}
+
+// Ik: 6.1.x remote-draw (draw on the shared screen) relay. The SDK page-side hook
+// cannot run here, so the preload shims the `window.jitsiElectronSDK.remoteDraw`
+// bridge surface (same IPC channels as the SDK preload bridge) in the isolated
+// world and instantiates the SDK renderer hook against it. The hook opens a
+// `jitsi-remote-draw` postis channel to the kMeet frame and announces
+// "supported", which is what lets the app activate its draw receiver and
+// advertise the http://jitsi.org/meet/remotedraw presence feature that enables
+// the drawing button while a screen share is active.
+function setupKmeetRemoteDraw(apiInstance: _JitsiMeetExternalAPI): void {
+    const drawMarker = 'jitsi-screen-sharing-draw-marker';
+    const remoteDrawBridge = {
+        platform: process.platform,
+        start: (sourceId: string) => (sourceId ? ipcRenderer.invoke('jitsi-remotedraw-start', sourceId) : undefined),
+        getDisplay: (sourceId: string) => (sourceId ? ipcRenderer.invoke('jitsi-remotedraw-get-display', sourceId) : undefined),
+        sendEvent: (data: unknown, display: unknown) => {
+            ipcRenderer.send(drawMarker, {data, display});
+        },
+        onDrawEvent: (callback: (payload: unknown) => void) => {
+            const listener = (_event: unknown, payload: unknown) => callback(payload);
+            ipcRenderer.on(drawMarker, listener);
+
+            return () => ipcRenderer.removeListener(drawMarker, listener);
+        },
+        onDisplaysChanged: (callback: () => void) => {
+            const listener = () => callback();
+            ipcRenderer.on('jitsi-remotedraw-displays-changed', listener);
+
+            return () => ipcRenderer.removeListener('jitsi-remotedraw-displays-changed', listener);
+        },
+    };
+
+    const isolatedWindow = window as unknown as {jitsiElectronSDK?: Record<string, unknown>};
+    isolatedWindow.jitsiElectronSDK = {...isolatedWindow.jitsiElectronSDK, remoteDraw: remoteDrawBridge};
+
+    setupRemoteDrawRender(apiInstance);
 }
 
 // Ik: exposed through the contextBridge so the call window can run with
