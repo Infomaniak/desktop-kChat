@@ -21,6 +21,7 @@ import {
     isPublicFilesUrl,
     isTeamUrl,
     isValidURI,
+    isTrustedKmeetAuthURL,
     parseURL,
 } from 'common/utils/url';
 import ContextMenu from 'main/contextMenu';
@@ -123,7 +124,13 @@ export class WebContentsEventManager {
             isAdminUrl(serverURL, parsedURL) ||
             isLoginUrl(serverURL, parsedURL) ||
             isChannelExportUrl(serverURL, parsedURL) ||
-            Boolean(CallsWidgetWindow.callID && isCallsPopOutURL(serverURL, parsedURL, CallsWidgetWindow.callID));
+            Boolean(CallsWidgetWindow.callID && isCallsPopOutURL(serverURL, parsedURL, CallsWidgetWindow.callID)) ||
+
+            // Ik: the kChat webapp runs its Infomaniak SSO in this view as a top-level
+            // navigation to the platform auth origin (observed live: blocked while the
+            // session re-authenticated, regression vs master). Same exact origin+path
+            // shape the call window already trusts for its SSO pop-ups.
+            Boolean(isTrustedKmeetAuthURL(parsedURL));
     };
 
     private denyNewWindow = (details: Electron.HandlerDetails): {action: 'deny' | 'allow'} => {

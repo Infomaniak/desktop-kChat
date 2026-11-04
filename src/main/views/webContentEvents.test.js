@@ -106,6 +106,21 @@ describe('main/views/webContentsEvents', () => {
             expect(event.preventDefault).not.toBeCalled();
         });
 
+        it('should allow the Infomaniak SSO authorize step (platform auth origin)', () => {
+            willNavigate(event, 'https://login.infomaniak.com/authorize?client_id=A7376A6D-9A79&redirect_uri=https%3A%2F%2Fkchat.infomaniak.com%2F');
+            expect(event.preventDefault).not.toBeCalled();
+        });
+
+        it('should deny a lookalike auth origin', () => {
+            willNavigate(event, 'https://login.infomaniak.com.evil.tld/authorize');
+            expect(event.preventDefault).toBeCalled();
+        });
+
+        it('should deny a non-authorize path on the auth origin', () => {
+            willNavigate(event, 'https://login.infomaniak.com/something-else');
+            expect(event.preventDefault).toBeCalled();
+        });
+
         it('should deny navigation to an external origin (view pivot)', () => {
             willNavigate(event, 'http://someotherurl.com');
             expect(event.preventDefault).toBeCalled();
