@@ -189,11 +189,12 @@ class KmeetCallWindow {
                 session,
                 sandbox: false,
                 enableBlinkFeatures: 'WebAssemblyCSP',
-                nodeIntegration: true,
-                contextIsolation: false,
+                contextIsolation: true,
 
-                // Required for Jitsi SDK to access cross-origin iframes (powermonitor, remotedraw)
-                // This window only loads trusted content from whitelisted origins
+                // Ik: the preload exposes jitsiNodeAPI through the contextBridge and the
+                // injected kmeet.js uses no Node APIs — nodeIntegration is gone. This
+                // webSecurity remains for the Jitsi SDK cross-origin iframes (powermonitor,
+                // remotedraw); tracked for a separate A/B evaluation.
                 webSecurity: false,
             },
         });
