@@ -174,7 +174,7 @@
         "@emotion/react": "11.11.4",
         "@floating-ui/react": "0.26.28",
         "@infomaniak/compass-icons": "0.13.0",
-        "@infomaniak/jitsi-meet-electron-sdk": "^6.0.12",
+        "@infomaniak/jitsi-meet-electron-sdk": "6.1.2",
         "@sentry/electron": "4.24.0",
         "auto-launch": "5.0.6",
         "bootstrap": "4.6.1",
@@ -202,12 +202,12 @@
         "yargs": "17.7.2"
     },
     "allowScripts": {
-        "@infomaniak/jitsi-meet-electron-sdk@6.0.12": true,
         "@jitsi/robotjs@0.6.21": true,
         "@sentry/cli@2.58.6": true,
         "electron@37.6.1": true,
         "fsevents@2.3.3": true,
         "macos-notification-state@3.0.0": true,
-        "windows-focus-assist@1.4.0": true
+        "windows-focus-assist@1.4.0": true,
+        "@infomaniak/jitsi-meet-electron-sdk": true
     }
 }

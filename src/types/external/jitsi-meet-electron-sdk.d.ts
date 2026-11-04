@@ -1,42 +1,37 @@
 /* eslint-disable header/header */
 
-declare module '@infomaniak/jitsi-meet-electron-sdk' {
+declare module '@infomaniak/jitsi-meet-electron-sdk/main' {
     import type {BrowserWindow} from 'electron';
-    import type {_JitsiMeetExternalAPI} from 'jitsi-meet';
 
-    export class RemoteControl {
-        constructor(api: _JitsiMeetExternalAPI);
-    }
-
-    export class RemoteControlMain {
-        constructor(api: _JitsiMeetExternalAPI);
-    }
-
-    export class RemoteDraw {
-        constructor(api: _JitsiMeetExternalAPI);
-    }
-
-    export class RemoteDrawMain {
-        constructor(window: BrowserWindow);
-    }
-
-    export function setupScreenSharingRender(api: _JitsiMeetExternalAPI): void;
-    export function setupScreenSharingMain(window: BrowserWindow, appName: string, appId: string): void;
-    export function cleanupAlwaysOnTopMain(api: _JitsiMeetExternalAPI): void;
-    export function setupAlwaysOnTopRender(api: _JitsiMeetExternalAPI): void;
-    export function setupAlwaysOnTopMain(window: BrowserWindow, _?: unknown, windowOpenHandler: ({url, frameName}: {url: string; frameName: string}) => void): void;
-    export function cleanupPowerMonitorMain(window: BrowserWindow): void;
-    export function setupPowerMonitorRender(api: _JitsiMeetExternalAPI): void;
+    export function getPopupTarget(url: string, frameName: string): string | undefined;
+    export function initPopupsConfigurationMain(window: BrowserWindow): void;
+    export function setupPictureInPictureMain(window: BrowserWindow): void;
     export function setupPowerMonitorMain(window: BrowserWindow): void;
+    export function setupRemoteControlMain(window: BrowserWindow): void;
+    export function setupRemoteDrawMain(window: BrowserWindow): void;
+    export function setupScreenSharingMain(window: BrowserWindow, identity: string, osxBundleId: string): void;
+    export function cleanupPowerMonitorMain(window: BrowserWindow): void;
 
     export interface PopupsConfigRegistry {
-
-        // Define the properties and methods of popupsConfigRegistry if available
     }
 
     export const popupsConfigRegistry: PopupsConfigRegistry;
+}
 
-    export function initPopupsConfigurationMain(api: _JitsiMeetExternalAPI): void;
+declare module '@infomaniak/jitsi-meet-electron-sdk/preload' {
+    export function install(): void;
+}
+
+// Ik: 6.1.x renderer hooks run in the page main world; the kchat call window keeps
+// its screensharing bridge in the preload until the external API is migrated to the
+// main world, so these are declared but unused.
+declare module '@infomaniak/jitsi-meet-electron-sdk/renderer' {
+    import type {_JitsiMeetExternalAPI} from 'jitsi-meet';
+
     export function initPopupsConfigurationRender(api: _JitsiMeetExternalAPI): void;
-    export function getPopupTarget(api: _JitsiMeetExternalAPI): void;
+    export function setupPictureInPictureRender(api: _JitsiMeetExternalAPI): void;
+    export function setupPowerMonitorRender(api: _JitsiMeetExternalAPI): void;
+    export function setupRemoteControlRender(api: _JitsiMeetExternalAPI): void;
+    export function setupRemoteDrawRender(api: _JitsiMeetExternalAPI): void;
+    export function setupScreenSharingRender(api: _JitsiMeetExternalAPI): void;
 }
