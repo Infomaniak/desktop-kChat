@@ -36,8 +36,11 @@ module.exports = merge(base, {
         }),
     ],
     node: {
-        __filename: true,
-        __dirname: true,
+        // Ik: real paths — the SDK's remote-draw overlay loads its html with
+        // `file://${__dirname}/remoteDraw.html`; the fake relative path made
+        // that URL resolve against the drive root and fail (ERR_FAILED).
+        __filename: false,
+        __dirname: false,
     },
     target: 'electron-main',
 });
