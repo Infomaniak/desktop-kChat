@@ -29,10 +29,19 @@ module.exports = merge(base, {
     },
     plugins: [
         new CopyPlugin({
-            patterns: [{
-                from: 'assets/**/*',
-                context: 'src',
-            }],
+            patterns: [
+                {
+                    from: 'assets/**/*',
+                    context: 'src',
+                },
+
+                // Ik: the SDK remote-draw overlay loads its html from the main bundle
+                // directory (`file://${__dirname}/remoteDraw.html`); ship it.
+                {
+                    from: 'node_modules/@infomaniak/jitsi-meet-electron-sdk/remotedraw/remoteDraw.*',
+                    to: '[name][ext]',
+                },
+            ],
         }),
     ],
     node: {
