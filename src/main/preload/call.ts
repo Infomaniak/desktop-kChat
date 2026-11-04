@@ -14,7 +14,7 @@
 // page main world.
 import {install as installSdkBridge} from '@infomaniak/jitsi-meet-electron-sdk/preload';
 import {setupRemoteDrawRender} from '@infomaniak/jitsi-meet-electron-sdk/renderer';
-import {contextBridge, ipcRenderer} from 'electron';
+import {contextBridge, ipcRenderer, log} from 'electron';
 import type {
     JitsiMeetExternalAPIConstructor,
     ExternalAPIEventCallbacks,
@@ -283,9 +283,18 @@ function setupKmeetRemoteDraw(apiInstance: _JitsiMeetExternalAPI): void {
     const drawMarker = 'jitsi-screen-sharing-draw-marker';
     const remoteDrawBridge = {
         platform: process.platform,
-        start: (sourceId: string) => (sourceId ? ipcRenderer.invoke('jitsi-remotedraw-start', sourceId) : undefined),
-        getDisplay: (sourceId: string) => (sourceId ? ipcRenderer.invoke('jitsi-remotedraw-get-display', sourceId) : undefined),
+        start: (sourceId: string) => {
+            log.info(`[kmeet-draw] start invoked, sourceId: ${sourceId}`);
+
+            return sourceId ? ipcRenderer.invoke('jitsi-remotedraw-start', sourceId) : undefined;
+        },
+        getDisplay: (sourceId: string) => {
+            log.info(`[kmeet-draw] getDisplay invoked, sourceId: ${sourceId}`);
+
+            return sourceId ? ipcRenderer.invoke('jitsi-remotedraw-get-display', sourceId) : undefined;
+        },
         sendEvent: (data: unknown, display: unknown) => {
+            log.info(`[kmeet-draw] sendEvent: ${JSON.stringify(data).slice(0, 140)}`);
             ipcRenderer.send(drawMarker, {data, display});
         },
         onDrawEvent: (callback: (payload: unknown) => void) => {
