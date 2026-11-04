@@ -239,6 +239,12 @@ function setupKmeetScreenSharePicker(apiInstance: _JitsiMeetExternalAPI) {
     // The kMeet picker asks for the source list over the external API transport.
     transport.on('request', (payload, respond) => {
         const request = payload as {name?: string; options?: unknown} | null;
+        if (request?.name === '_new_electron_screensharing_supported') {
+            // Ik: tells the kMeet app to use the getDisplayMedia-based flow instead of
+            // the legacy window.JitsiMeetElectron path.
+            (respond as unknown as (r: unknown) => void)(true);
+            return;
+        }
         if (request?.name !== '_request-desktop-sources') {
             return;
         }
