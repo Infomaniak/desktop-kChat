@@ -14,7 +14,7 @@ import {
     setupRemoteDrawMain,
     setupScreenSharingMain,
 } from '@infomaniak/jitsi-meet-electron-sdk/main';
-import {app, BrowserWindow, ipcMain, shell, systemPreferences, webFrameMain} from 'electron';
+import {app, BrowserWindow, desktopCapturer, ipcMain, shell, systemPreferences, webFrameMain} from 'electron';
 
 import CallDialingWindow from './callDialingWindow';
 import MainWindow from './mainWindow';
@@ -318,6 +318,30 @@ class KmeetCallWindow {
         setupRemoteDrawMain(this.callWindow);
         setupPictureInPictureMain(this.callWindow);
 
+        // Ik: the 6.1.x SDK answers getDisplayMedia through its page-side picker hook,
+        // which we cannot run (the external API lives in the isolated world). Until that
+        // hook is reimplemented in the preload, auto-answer with the primary display so
+        // screen sharing is functional; this replaces the SDK's own GDM handler.
+        this.callWindow.webContents.session.setDisplayMediaRequestHandler((_request, cb) => {
+            const callback = cb as unknown as (s: Electron.Streams | null) => void;
+            const callWindow = this.callWindow;
+            if (!callWindow || callWindow.isDestroyed()) {
+                callback(null);
+                return;
+            }
+            log.info('kmeet GDM: auto-answering with primary display');
+            desktopCapturer.getSources({types: ['screen']}).then((sources) => {
+                if (!sources.length) {
+                    callback(null);
+                    return;
+                }
+                callback({video: sources[0]});
+            }).catch((error) => {
+                log.warn('kmeet GDM auto-answer failed:', error);
+                callback(null);
+            });
+        });
+
         const withDevTools = Boolean(process.env.MM_DEBUG_SETTINGS) || false;
 
         // Ik: the kMeet frame expects window.JitsiMeetElectron (the SDK's screensharing
@@ -338,24 +362,42 @@ class KmeetCallWindow {
 
         // Ik: the kMeet app keeps a mirror <video> (pipVideo) whose stream drives the
         // native Chromium picture-in-picture. The SDK 6.x always-on-top window is gone,
-        // so minimizing the call window hands the video to a floating native PiP window
-        // instead; restoring the window closes it. executeJavaScript with
-        // userGesture=true mirrors the SDK's own main-process PiP path (a minimize has
-        // no user activation, which the element PiP API otherwise requires).
-        this.callWindow.on('minimize', () => {
-            const kmeetFrame = this.callWindow?.webContents.mainFrame.frames.find((frame) => frame.name.startsWith('jitsiConferenceFrame'));
-            kmeetFrame?.executeJavaScript(
+        // so losing focus or minimizing the call window hands the video to a floating
+        // native PiP window instead; focusing the window again closes it.
+        // executeJavaScript with userGesture=true mirrors the SDK's own main-process
+        // PiP path (a minimize/blur carries no user activation, which the element PiP
+        // API otherwise requires).
+        const requestKmeetPiP = (reason: string) => {
+            const win = this.callWindow;
+            if (!win || win.isDestroyed()) {
+                return;
+            }
+            log.info(`kmeet PiP requested on ${reason}`);
+            const kmeetFrame = win.webContents.mainFrame.frames.find((frame) => frame.name.startsWith('jitsiConferenceFrame'));
+            if (!kmeetFrame) {
+                log.warn(`kmeet PiP on ${reason}: conference frame not found`);
+                return;
+            }
+            kmeetFrame.executeJavaScript(
                 'window.JitsiMeetJS?.app?.electron?.requestPictureInPicture?.()',
                 true,
-            ).catch((error) => log.warn('kmeet PiP trigger on minimize failed:', error));
-        });
-        this.callWindow.on('restore', () => {
-            const kmeetFrame = this.callWindow?.webContents.mainFrame.frames.find((frame) => frame.name.startsWith('jitsiConferenceFrame'));
+            ).then(() => log.info(`kmeet PiP script executed on ${reason}`)).catch((error) => log.warn(`kmeet PiP on ${reason} failed:`, error));
+        };
+        const closeKmeetPiP = () => {
+            const win = this.callWindow;
+            if (!win || win.isDestroyed()) {
+                return;
+            }
+            const kmeetFrame = win.webContents.mainFrame.frames.find((frame) => frame.name.startsWith('jitsiConferenceFrame'));
             kmeetFrame?.executeJavaScript(
                 'document.exitPictureInPicture?.()',
                 true,
-            ).catch((error) => log.warn('kmeet PiP close on restore failed:', error));
-        });
+            ).catch((error) => log.warn('kmeet PiP close failed:', error));
+        };
+        this.callWindow.on('minimize', () => requestKmeetPiP('minimize'));
+        this.callWindow.on('blur', () => requestKmeetPiP('blur'));
+        this.callWindow.on('restore', closeKmeetPiP);
+        this.callWindow.on('focus', closeKmeetPiP);
 
         if (withDevTools) {
             this.callWindow.webContents.openDevTools({mode: 'detach'});
