@@ -150,11 +150,12 @@ export class TokenManager {
             });
 
             req.on('response', (response: Electron.IncomingMessage) => {
-                log.silly('handlePostToken.response', response);
+                // CWE-532: do not log token material.
+                log.silly('handlePostToken.response.statusCode', response.statusCode);
 
                 if (response.statusCode === 200) {
                     response.on('data', (chunk: Buffer) => {
-                        log.silly('handlePostToken.response.data', `${chunk}`);
+                        log.silly('handlePostToken.response.data.length', chunk.length);
                         const raw = `${chunk}`;
                         try {
                             const data = JSON.parse(raw) as Record<string, string>;
@@ -182,7 +183,7 @@ export class TokenManager {
                         }
                     });
                 } else {
-                    const error = new Error(`Bad status code requesting from token refresh ${JSON.stringify(response)}`);
+                    const error = new Error(`Bad status code requesting from token refresh ${response.statusCode}`);
                     log.error(error);
                     this.reset();
                     if (callback) {
@@ -235,7 +236,7 @@ export class TokenManager {
             });
 
             req.on('response', (response: Electron.IncomingMessage) => {
-                log.silly('handleRevokeToken.response', response);
+                log.silly('handleRevokeToken.response.statusCode', response.statusCode);
 
                 if (response.statusCode === 200) {
                     this.reset();
@@ -245,7 +246,7 @@ export class TokenManager {
                     this.revokePromise = undefined;
                     resolve();
                 } else {
-                    const error = new Error(`Bad status code requesting from token revoke ${JSON.stringify(response)}`);
+                    const error = new Error(`Bad status code requesting from token revoke ${response.statusCode}`);
                     log.error(error);
                     if (callback) {
                         callback(error);

@@ -38,11 +38,12 @@ export async function getServerAPI(url: URL, isAuthenticated: boolean, onSuccess
 
     if (onSuccess) {
         req.on('response', (response: Electron.IncomingMessage) => {
-            log.silly('response', response);
+            // CWE-532: do not log raw response bodies.
+            log.silly('response.statusCode', response.statusCode);
             if (response.statusCode === 200) {
                 let raw = '';
                 response.on('data', (chunk: Buffer) => {
-                    log.silly('response.data', `${chunk}`);
+                    log.silly('response.data.length', chunk.length);
                     raw += `${chunk}`;
                 });
                 response.on('end', () => {
