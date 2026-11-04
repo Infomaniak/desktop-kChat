@@ -319,9 +319,10 @@ class KmeetCallWindow {
         setupPictureInPictureMain(this.callWindow);
 
         // Ik: the 6.1.x SDK answers getDisplayMedia through its page-side picker hook,
-        // which we cannot run (the external API lives in the isolated world). Until that
-        // hook is reimplemented in the preload, auto-answer with the primary display so
-        // screen sharing is functional; this replaces the SDK's own GDM handler.
+        // which we cannot run (the external API lives in the isolated world). Use the
+        // native macOS system picker (macOS 15+) when available; on older systems the
+        // handler below auto-answers with the primary display. This replaces the SDK's
+        // own GDM handler.
         this.callWindow.webContents.session.setDisplayMediaRequestHandler((_request, cb) => {
             const callback = cb as unknown as (s: Electron.Streams | null) => void;
             const callWindow = this.callWindow;
@@ -340,7 +341,7 @@ class KmeetCallWindow {
                 log.warn('kmeet GDM auto-answer failed:', error);
                 callback(null);
             });
-        });
+        }, {useSystemPicker: true});
 
         const withDevTools = Boolean(process.env.MM_DEBUG_SETTINGS) || false;
 
