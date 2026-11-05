@@ -224,7 +224,9 @@ function setupKmeetRemoteDraw(apiInstance: _JitsiMeetExternalAPI): void {
             return sourceId ? ipcRenderer.invoke('jitsi-remotedraw-get-display', sourceId) : undefined;
         },
         sendEvent: (data: unknown, display: unknown) => {
-            log.info(`[kmeet-draw] sendEvent: ${JSON.stringify(data).slice(0, 140)}`);
+            // Ik: no per-event logging here — draw traffic flows at mousemove
+            // frequency through a sandboxed preload (each log line is an IPC relay)
+            // and JSON.stringify on unknown payloads can throw on cycles.
             ipcRenderer.send(drawMarker, {data, display});
         },
         onDrawEvent: (callback: (payload: unknown) => void) => {

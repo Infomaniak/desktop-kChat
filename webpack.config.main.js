@@ -15,7 +15,13 @@ module.exports = merge(base, {
         'macos-notification-state': 'require("macos-notification-state")',
         'windows-focus-assist': 'require("windows-focus-assist")',
         '@sentry/electron': 'require("@sentry/electron")',
-        '@infomaniak/jitsi-meet-electron-sdk': 'require("@infomaniak/jitsi-meet-electron-sdk")',
+
+        // Ik: the bare '@infomaniak/jitsi-meet-electron-sdk' entry was removed: all
+        // imports use subpaths ('.../main', '.../preload', '.../renderer') that an
+        // exact-match external never matched, so the SDK was silently bundled. If it
+        // should become external again, use a regex — and note its __dirname would
+        // then resolve inside node_modules, making the remote-draw overlay CopyPlugin
+        // block below redundant (packaged asar build untested with that layout).
     },
     externalsPresets: {
         electronMain: true,

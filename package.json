@@ -208,6 +208,6 @@
         "fsevents@2.3.3": true,
         "macos-notification-state@3.0.0": true,
         "windows-focus-assist@1.4.0": true,
-        "@infomaniak/jitsi-meet-electron-sdk": true
+        "@infomaniak/jitsi-meet-electron-sdk@6.1.2": true
     }
 }
