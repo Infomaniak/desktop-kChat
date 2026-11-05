@@ -91,36 +91,6 @@ export interface CallInfo {
     jwt: string;
 }
 
-type ApplePrivacyAnchor =
-    | 'LocationServices'
-    | 'Contacts'
-    | 'Calendars'
-    | 'Reminders'
-    | 'Photos'
-    | 'Camera'
-    | 'Microphone'
-    | 'SpeechRecognition'
-    | 'Accessibility'
-    | 'AllFiles'
-    | 'Automation'
-    | 'Diagnostics'
-    | 'Advertising'
-    | 'AppleIntelligenceReport'
-    | 'DevTools'
-    | 'NudityDetection'
-    | 'Location'
-    | 'SystemServices'
-    | 'ScreenCapture'
-    | 'AudioCapture'
-    | 'Analytics'
-    | 'FilesAndFolders'
-    | 'DesktopFolder'
-    | 'DocumentsFolder'
-    | 'DownloadsFolder'
-    | 'NetworkVolume'
-    | 'RemovableVolume'
-    | 'Pasteboard'
-
 const log = new Logger('KmeetCallWindow');
 
 /**
@@ -146,28 +116,12 @@ export function openExternalLink(link: string) {
     }
 }
 
-function openScreenSettings(anchor?: ApplePrivacyAnchor) {
-    const privacyAnchor = anchor ? `?Privacy_${anchor}` : '';
-    const link = `x-apple.systempreferences:com.apple.preference.security${privacyAnchor}`;
-    return shell.openExternal(link);
-}
-
 class KmeetCallWindow {
     private callWindow?: BrowserWindow;
     private callInfo?: CallInfo;
 
     constructor() {
         ipcMain.handle('get-call-info', () => this.callInfo);
-        ipcMain.handle('screen-share-permissions', () => {
-            log.debug('getMediaAccessStatus screen', systemPreferences.getMediaAccessStatus('screen'));
-            return systemPreferences.getMediaAccessStatus('screen');
-        });
-        ipcMain.handle('open-screen-permission-settings', () => {
-            return openScreenSettings('ScreenCapture');
-        });
-        ipcMain.handle('open-permission-settings', (_event, anchor?: ApplePrivacyAnchor) => {
-            return openScreenSettings(anchor);
-        });
         ipcMain.on(CALL_ENDED, this.handleCallEnded);
         ipcMain.on(CALL_READY_TO_CLOSE, this.handleCallEnded);
         ipcMain.on(CALL_RING_CLOSE_WINDOW, this.handleCloseRingWindow);

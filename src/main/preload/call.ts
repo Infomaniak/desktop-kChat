@@ -109,7 +109,6 @@ function setupRenderer(selector: string, callInfo: CallInfo) {
 
     api = new (JitsiMeetExternalAPI as JitsiMeetExternalAPIConstructor)(KMEET_ORIGIN, options);
 
-    setupKmeetScreenShareBridge(api);
     setupKmeetScreenSharePicker(api);
     setupKmeetRemoteDraw(api);
 
@@ -133,76 +132,6 @@ const onErrorOccurred = ({error}: Parameters<ExternalAPIEventCallbacks['errorOcc
         ipcRenderer.send(CALL_READY_TO_CLOSE);
     }
 };
-
-// Ik: the kMeet frame asks the host for desktop sources (and macOS capture
-// permissions) through window.JitsiMeetElectron — historically injected by the SDK
-// with a cross-origin write that cannot work with contextIsolation + webSecurity on.
-// The bridge lives in the preload (isolated world): requests arrive as window
-// messages from the kMeet frame, are routed to fixed IPC channels and answered back
-// to the frame that asked. Only the Jitsi iframe of the trusted kMeet origin may ask,
-// and only these fixed channels are reachable.
-const kmeetScreenShareChannels = {
-    'get-sources': 'jitsi-screen-sharing-get-sources',
-    'screen-permissions': 'screen-share-permissions',
-    'open-screen-permission-settings': 'open-screen-permission-settings',
-    'open-permission-settings': 'open-permission-settings',
-};
-
-// Ik: ipc results may embed Electron values (NativeImage thumbnails of the desktop
-// sources) that structured-clone cannot cross a postMessage boundary — keep plain
-// data, turning images into data URLs so previews still work.
-function sanitizeForBridge(value: unknown): unknown {
-    if (value === null || typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
-        return value;
-    }
-    if (value && typeof value === 'object' && typeof (value as {toDataURL?: unknown}).toDataURL === 'function') {
-        try {
-            return (value as {toDataURL: () => string}).toDataURL();
-        } catch {
-            return undefined;
-        }
-    }
-    if (Array.isArray(value)) {
-        return value.map((entry) => sanitizeForBridge(entry) ?? null);
-    }
-    if (value && typeof value === 'object') {
-        const out: Record<string, unknown> = {};
-        for (const [key, entry] of Object.entries(value as Record<string, unknown>)) {
-            const sanitized = sanitizeForBridge(entry);
-            if (sanitized !== undefined) {
-                out[key] = sanitized;
-            }
-        }
-        return out;
-    }
-    return undefined;
-}
-
-function setupKmeetScreenShareBridge(apiInstance: _JitsiMeetExternalAPI) {
-    const iframeWindow = (apiInstance.getIFrame() as unknown as HTMLIFrameElement).contentWindow;
-
-    window.addEventListener('message', (event) => {
-        const data = event.data as {__kmeetBridge?: string; id?: string; kind?: string; payload?: unknown} | null;
-        if (!data || data.__kmeetBridge !== 'request' || !data.id || !data.kind) {
-            return;
-        }
-
-        // only the kMeet frame may drive these channels
-        if (!iframeWindow || event.source !== iframeWindow) {
-            return;
-        }
-
-        const channel = kmeetScreenShareChannels[data.kind as keyof typeof kmeetScreenShareChannels];
-        if (!channel) {
-            return;
-        }
-
-        ipcRenderer.invoke(channel, data.payload).then(
-            (result) => event.source?.postMessage({__kmeetBridge: 'reply', id: data.id, result: sanitizeForBridge(result)}, '*'),
-            (error) => event.source?.postMessage({__kmeetBridge: 'reply', id: data.id, error: String((error as Error)?.message ?? error)}, '*'),
-        );
-    });
-}
 
 // Ik: 6.1.x screensharing protocol relay. The SDK's page-side picker hook cannot run
 // here (the external API lives in this isolated world), so the preload wires the flow:
