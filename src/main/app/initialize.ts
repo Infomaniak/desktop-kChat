@@ -4,7 +4,7 @@
 import path from 'path';
 import {pathToFileURL} from 'url';
 
-import {app, ipcMain, nativeTheme, net, protocol, session} from 'electron';
+import {app, ipcMain, nativeTheme, net, protocol, session, systemPreferences} from 'electron';
 import installExtension, {REACT_DEVELOPER_TOOLS, REDUX_DEVTOOLS} from 'electron-devtools-installer';
 import isDev from 'electron-is-dev';
 
@@ -321,6 +321,12 @@ function initializeInterCommunicationEventListeners() {
     ipcMain.handle(GET_DARK_MODE, handleGetDarkMode);
     ipcMain.on(DOUBLE_CLICK_ON_WINDOW, handleDoubleClick);
     ipcMain.on(SCREEN_SHARE_PERMISSIONS, getScreenPermissions);
+
+    // Ik: the kchat webapp calls window.desktop.getScreenPermissions() (internalAPI.js)
+    // through ipcRenderer.invoke, which needs a handle — ipcMain.on above does not
+    // answer invokes. Keep the raw string shape of getMediaAccessStatus: intercom's
+    // boolean variant answers the legacy send channel and is a different contract.
+    ipcMain.handle(SCREEN_SHARE_PERMISSIONS, () => systemPreferences.getMediaAccessStatus('screen'));
 
     ipcMain.on(TOGGLE_SECURE_INPUT, handleToggleSecureInput);
     ipcMain.on(CALL_OPEN_WINDOW, handleOpenKmeetWindow);
