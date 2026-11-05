@@ -1,0 +1,99 @@
+diff --git a/node_modules/@jitsi/robotjs/binding.gyp b/node_modules/@jitsi/robotjs/binding.gyp
+deleted file mode 100644
+index 5055de2..0000000
+--- a/node_modules/@jitsi/robotjs/binding.gyp
++++ /dev/null
+@@ -1,79 +0,0 @@
+-{
+-  'variables': {
+-    'openssl_fips': ''
+-  },
+-  'targets': [{
+-    'target_name': 'robotjs',
+-      'cflags!': [ '-fno-exceptions' ],
+-      'cflags_cc!': [ '-fno-exceptions' ],
+-      'xcode_settings': { 'GCC_ENABLE_CPP_EXCEPTIONS': 'YES',
+-        'CLANG_CXX_LIBRARY': 'libc++',
+-        'MACOSX_DEPLOYMENT_TARGET': '10.7',
+-        'OTHER_CFLAGS': [
+-          '-arch x86_64',
+-          '-arch arm64'
+-        ],
+-        'OTHER_LDFLAGS': [
+-          '-arch x86_64',
+-          '-arch arm64'
+-        ]
+-      },
+-      'msvs_settings': {
+-        'VCCLCompilerTool': { 'ExceptionHandling': 1 },
+-      },
+-    'include_dirs': [
+-      '<!(node -p "require(\'node-addon-api\').include_dir")',
+-    ],
+-    
+-    'conditions': [
+-      ['OS == "mac"', {
+-        'include_dirs': [
+-          '<!(node -p "require(\'node-addon-api\').include_dir")',
+-          'System/Library/Frameworks/CoreFoundation.Framework/Headers',
+-          'System/Library/Frameworks/Carbon.Framework/Headers',
+-          'System/Library/Frameworks/ApplicationServices.framework/Headers',
+-          'System/Library/Frameworks/OpenGL.framework/Headers',
+-        ],
+-        'link_settings': {
+-          'libraries': [
+-            '-framework Carbon',
+-            '-framework CoreFoundation',
+-            '-framework ApplicationServices',
+-            '-framework OpenGL'
+-          ]
+-        }
+-      }],
+-      
+-      ['OS == "linux"', {
+-        'link_settings': {
+-          'libraries': [
+-            '-lpng',
+-            '-lz',
+-            '-lX11',
+-            '-lXtst'
+-          ]
+-        },
+-        
+-        'sources': [
+-          'src/xdisplay.c'
+-        ]
+-      }],
+-
+-      ["OS=='win'", {
+-        'defines': ['IS_WINDOWS']
+-      }]
+-    ],
+-    
+-    'sources': [
+-      'src/robotjs.cc',
+-      'src/deadbeef_rand.c',
+-      'src/mouse.c',
+-      'src/keypress.c',
+-      'src/keycode.c',
+-      'src/screen.c',
+-      'src/screengrab.c',
+-      'src/snprintf.c',
+-      'src/MMBitmap.c'
+-    ]
+-  }]
+-}
+\ No newline at end of file
+diff --git a/node_modules/@jitsi/robotjs/package.json b/node_modules/@jitsi/robotjs/package.json
+index 01baa48..50a6530 100644
+--- a/node_modules/@jitsi/robotjs/package.json
++++ b/node_modules/@jitsi/robotjs/package.json
+@@ -41,7 +41,7 @@
+   ],
+   "author": "Jason Stallings",
+   "license": "MIT",
+-  "gypfile": true,
++  "gypfile": false,
+   "binary": {
+     "napi_versions": [
+       3
