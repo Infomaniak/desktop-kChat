@@ -14,7 +14,7 @@ import {
     setupRemoteDrawMain,
     setupScreenSharingMain,
 } from '@infomaniak/jitsi-meet-electron-sdk/main';
-import {app, BrowserWindow, ipcMain, shell, systemPreferences} from 'electron';
+import {app, BrowserWindow, ipcMain, shell} from 'electron';
 
 import CallDialingWindow from './callDialingWindow';
 import MainWindow from './mainWindow';
