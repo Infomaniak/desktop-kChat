@@ -49,6 +49,7 @@ module.exports = merge(base, {
                     from: 'node_modules/@infomaniak/jitsi-meet-electron-sdk/remotedraw/preload.js',
                     to: 'preload.js',
                 },
+
                 // The shipped overlay preload requires `./constants` relative to
                 // its own file, so the constants module must sit next to it.
                 {
