@@ -17,8 +17,7 @@ runs:
               TAG_VERSION=${GITHUB_REF_NAME}
 
               if [ "$CURRENT_VERSION" != "$TAG_VERSION" ]; then
-                npm --no-git-tag-version version $TAG_VERSION
-                npm install --package-lock-only --ignore-scripts
+                jq --arg v "$TAG_VERSION" '.version = $v' package.json > package.json.tmp && mv package.json.tmp package.json
               else
                 echo "Version is already up-to-date."
               fi
