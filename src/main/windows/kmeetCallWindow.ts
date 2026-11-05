@@ -237,19 +237,21 @@ class KmeetCallWindow {
             webPreferences: {
                 preload,
                 session,
-                sandbox: false,
+                sandbox: true,
                 enableBlinkFeatures: 'WebAssemblyCSP',
                 contextIsolation: true,
 
                 // Ik: the preload exposes jitsiNodeAPI through the contextBridge and the
                 // injected kmeet.js uses no Node APIs — nodeIntegration is gone.
                 //
-                // No webSecurity override: the 6.1.x SDK render modules are postMessage
-                // based ("browser-safe") and never touch the cross-origin Jitsi iframe
-                // window directly, matching the upstream jitsi-meet-electron reference
-                // which runs with default web security. The remaining legacy consumer
-                // (kmeetFrameBridgeScript) uses webContents.executeJavaScript, which is
-                // not blocked by same-origin policy.
+                // Sandbox enabled (upstream jitsi-meet-electron pattern): the bundled
+                // call preload is self-contained (only electron + lazy external
+                // modules, no top-level Node API use) and validated to boot under
+                // sandbox:true. No webSecurity override either: the 6.1.x SDK render
+                // modules are postMessage based ("browser-safe") and never touch the
+                // cross-origin Jitsi iframe window directly. The remaining legacy
+                // consumer (kmeetFrameBridgeScript) uses webContents.executeJavaScript,
+                // which is not blocked by same-origin policy.
             },
         });
 
