@@ -11,29 +11,28 @@
 const fs = require('fs');
 const path = require('path');
 
+// Optional peer dependency: only available when this script runs inside the
+// electron-builder dependency tree. Standalone CLI usage falls back below.
+let ebArch;
+try {
+    // eslint-disable-next-line global-require -- optional peer dependency, absent outside the electron-builder tree
+    ebArch = require('app-builder-lib').Arch;
+} catch (error) {
+    // standalone CLI usage without electron-builder in the dependency tree
+}
+
 const MACHINE_NAMES = {
     0x14c: 'ia32',
     0x8664: 'x64',
     0xaa64: 'arm64',
 };
 
-// electron-builder Arch enum values, resolved from the live app-builder-lib
-// when running inside electron-builder (ia32=0, x64=1, armv7l=2, arm64=3,
+// electron-builder Arch enum values (ia32=0, x64=1, armv7l=2, arm64=3,
 // universal=4 on electron-builder 24).
-const ARCH_NAMES = (() => {
-    try {
-        const ebArch = require('app-builder-lib').Arch;
-        if (ebArch && typeof ebArch === 'object') {
-            return ebArch;
-        }
-    } catch (error) {
-        // standalone CLI usage without electron-builder in the dependency tree
-    }
-    return {0: 'ia32', 1: 'x64', 2: 'armv7l', 3: 'arm64', 4: 'universal'};
-})();
+const ARCH_NAMES = ebArch && typeof ebArch === 'object' ? ebArch : {0: 'ia32', 1: 'x64', 2: 'armv7l', 3: 'arm64', 4: 'universal'};
 
 function expectedMachine(arch) {
-    const name = /^\d+$/.test(String(arch)) ? (ARCH_NAMES[Number(arch)] || String(arch)) : arch;
+    const name = (/^\d+$/).test(String(arch)) ? (ARCH_NAMES[Number(arch)] || String(arch)) : arch;
     switch (String(name).toLowerCase()) {
     case 'ia32':
         return 0x14c;

@@ -6,6 +6,8 @@ const path = require('path');
 
 const {flipFuses, FuseVersion, FuseV1Options} = require('@electron/fuses');
 
+const {verifyNativeArch} = require('./verify-native-arch');
+
 const SETUID_PERMISSIONS = '4755';
 
 function fixSetuid(context) {
@@ -40,7 +42,6 @@ exports.default = async function afterPack(context) {
         // Fail the build when a native module does not match the target arch
         // (runtime symptom on ARM64: error:193 while dlopen'ing *.tmp.node).
         if (context.electronPlatformName === 'win32') {
-            const {verifyNativeArch} = require('./verify-native-arch');
             const modules = verifyNativeArch(context.appOutDir, context.arch);
             console.log(`Verified ${modules.length} native module(s) for arch ${context.arch}`);
         }
