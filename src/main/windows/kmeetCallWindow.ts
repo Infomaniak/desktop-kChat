@@ -242,10 +242,14 @@ class KmeetCallWindow {
                 contextIsolation: true,
 
                 // Ik: the preload exposes jitsiNodeAPI through the contextBridge and the
-                // injected kmeet.js uses no Node APIs — nodeIntegration is gone. This
-                // webSecurity remains for the Jitsi SDK cross-origin iframes (powermonitor,
-                // remotedraw); tracked for a separate A/B evaluation.
-                webSecurity: false,
+                // injected kmeet.js uses no Node APIs — nodeIntegration is gone.
+                //
+                // No webSecurity override: the 6.1.x SDK render modules are postMessage
+                // based ("browser-safe") and never touch the cross-origin Jitsi iframe
+                // window directly, matching the upstream jitsi-meet-electron reference
+                // which runs with default web security. The remaining legacy consumer
+                // (kmeetFrameBridgeScript) uses webContents.executeJavaScript, which is
+                // not blocked by same-origin policy.
             },
         });
 
@@ -284,6 +288,19 @@ class KmeetCallWindow {
             }
 
             log.warn(`Prevented the call window from navigating to: ${url}`);
+            event.preventDefault();
+        });
+
+        // Ik: HTTP redirects must stay on web protocols (upstream jitsi-meet-electron
+        // pattern): a call page redirecting to file:// or a custom scheme would
+        // bypass the will-navigate allowlist above.
+        this.callWindow.webContents.on('will-redirect', (event, url) => {
+            const parsedURL = parseURL(url);
+            if (parsedURL && ['http:', 'https:', 'ws:', 'wss:'].includes(parsedURL.protocol)) {
+                return;
+            }
+
+            log.warn(`Prevented the call window from redirecting to: ${url}`);
             event.preventDefault();
         });
 
