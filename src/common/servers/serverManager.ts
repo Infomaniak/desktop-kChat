@@ -294,7 +294,7 @@ export class ServerManager extends EventEmitter {
             });
         }
         this.filterOutDuplicateServers();
-        this.serverOrder = serverOrder;
+        this.serverOrder = [...new Set(serverOrder)];
     };
 
     private filterOutDuplicateServers = () => {
@@ -310,6 +310,13 @@ export class ServerManager extends EventEmitter {
     };
 
     private initServer = (configServer: ConfigServer, isPredefined: boolean) => {
+        // RM-621599: reuse an already-initialized identical server so reloadFromConfig is idempotent
+        const incomingURL = parseURL(configServer.url)?.toString();
+        const existing = this.getAllServers().find((s) => s.name === configServer.name && s.url.toString() === incomingURL);
+        if (existing) {
+            return existing.id;
+        }
+
         const server = new MattermostServer(configServer, isPredefined);
         this.servers.set(server.id, server);
 

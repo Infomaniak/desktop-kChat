@@ -301,6 +301,7 @@ ipcMain.on(UPDATE_PATHS, () => {
     ipcMain.removeAllListeners(OPEN_WINDOWS_CAMERA_PREFERENCES);
     ipcMain.removeAllListeners(OPEN_WINDOWS_MICROPHONE_PREFERENCES);
     ipcMain.removeHandler(GET_MEDIA_ACCESS_STATUS);
+    ipcMain.removeHandler(REFRESH_PERMISSION);
     permissionsManager = new PermissionsManager(permissionsJson);
 });
 

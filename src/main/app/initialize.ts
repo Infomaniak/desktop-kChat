@@ -340,11 +340,9 @@ function updateTeamsHandler(_: any, servers: ConfigServer[]) {
     const [defaultServer] = buildConfig.defaultServers!;
     const [firstServer] = servers;
 
+    // RM-621599: empty teams = authenticated user with no kChat, keep default IK server so the webapp shows the no-kChat page
     if (!servers.length) {
-        ServerManager.removePredefinedServersHandler(true);
-        ServerManager.removePredefinedServersHandler(false);
-
-        ServerManager.emit(SERVERS_UPDATE);
+        initIKserver();
 
         return;
     }

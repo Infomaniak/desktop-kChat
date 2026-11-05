@@ -1,6 +1,7 @@
 // Copyright (c) 2016-present Mattermost, Inc. All Rights Reserved.
 // See LICENSE.txt for license information.
 
+import Config from 'common/config';
 import {parseURL, isInternalURL} from 'common/utils/url';
 import Utils from 'common/utils/util';
 import {TAB_MESSAGING, TAB_FOCALBOARD, TAB_PLAYBOOKS} from 'common/views/View';
@@ -146,6 +147,53 @@ describe('common/servers/serverManager', () => {
         it('should return undefined for wrong server', () => {
             const inputURL = new URL('http://server-3.com');
             expect(serverManager.lookupViewByURL(inputURL)).toBe(undefined);
+        });
+    });
+
+    describe('reloadFromConfig', () => {
+        it('should reuse an already-initialized identical server', () => {
+            const serverManager = new ServerManager();
+            parseURL.mockImplementation((url) => new URL(url));
+
+            const configServer = {
+                name: '.',
+                url: 'http://server-1.com',
+                order: 0,
+                tabs: [{name: TAB_MESSAGING, order: 0}],
+            };
+            Config.predefinedServers = [configServer];
+            Config.localServers = [];
+            Config.enableServerManagement = false;
+
+            serverManager.reloadFromConfig();
+            const firstId = serverManager.serverOrder[0];
+            expect(firstId).toBeTruthy();
+            expect(serverManager.hasServers()).toBe(true);
+
+            serverManager.reloadFromConfig();
+
+            expect(serverManager.serverOrder).toStrictEqual([firstId]);
+            expect(serverManager.hasServers()).toBe(true);
+        });
+
+        it('should not duplicate order entries for duplicate config servers', () => {
+            const serverManager = new ServerManager();
+            parseURL.mockImplementation((url) => new URL(url));
+
+            const configServer = {
+                name: '.',
+                url: 'http://server-1.com',
+                order: 0,
+                tabs: [{name: TAB_MESSAGING, order: 0}],
+            };
+            Config.predefinedServers = [configServer, configServer];
+            Config.localServers = [];
+            Config.enableServerManagement = false;
+
+            serverManager.reloadFromConfig();
+
+            expect(serverManager.serverOrder).toHaveLength(1);
+            expect(new Set(serverManager.serverOrder).size).toBe(serverManager.getAllServers().length);
         });
     });
 });
