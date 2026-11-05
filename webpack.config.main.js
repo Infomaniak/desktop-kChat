@@ -36,10 +36,24 @@ module.exports = merge(base, {
                 },
 
                 // Ik: the SDK remote-draw overlay loads its html from the main bundle
-                // directory (`file://${__dirname}/remoteDraw.html`); ship it.
+                // directory (`file://${__dirname}/remoteDraw.html`); ship it. The
+                // SDK main also resolves the overlay's preload at
+                // `path.resolve(__dirname, './preload.js')` — without it the
+                // overlay never exposes window.JitsiRemoteDraw and the marker
+                // canvas stays empty.
                 {
                     from: 'node_modules/@infomaniak/jitsi-meet-electron-sdk/remotedraw/remoteDraw.*',
                     to: '[name][ext]',
+                },
+                {
+                    from: 'node_modules/@infomaniak/jitsi-meet-electron-sdk/remotedraw/preload.js',
+                    to: 'preload.js',
+                },
+                // The shipped overlay preload requires `./constants` relative to
+                // its own file, so the constants module must sit next to it.
+                {
+                    from: 'node_modules/@infomaniak/jitsi-meet-electron-sdk/remotedraw/constants.js',
+                    to: 'constants.js',
                 },
             ],
         }),

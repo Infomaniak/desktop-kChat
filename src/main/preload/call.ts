@@ -14,7 +14,12 @@
 // page main world.
 import {install as installSdkBridge} from '@infomaniak/jitsi-meet-electron-sdk/preload';
 import {setupRemoteDrawRender} from '@infomaniak/jitsi-meet-electron-sdk/renderer';
+<<<<<<< HEAD
 import {contextBridge, ipcRenderer, log} from 'electron';
+=======
+import {contextBridge, ipcRenderer} from 'electron';
+import log from 'electron-log';
+>>>>>>> d7c84b355 (fix(kmeet): load remote-draw overlay preload and fix draw bridge logging)
 import type {
     JitsiMeetExternalAPIConstructor,
     ExternalAPIEventCallbacks,
