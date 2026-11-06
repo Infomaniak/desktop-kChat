@@ -133,6 +133,15 @@ jobs:
               run: |
                   ./scripts/Makefile.ps1 install-deps
                   choco install yq --version 4.15.1 -y
+                  npm i -g node-gyp@11.5.0
+                  if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+                  node-gyp install
+                  if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+                  node-gyp install --devdir="$env:USERPROFILE\.electron-gyp" --target=$(jq -r .devDependencies.electron package.json) --dist-url="https://electronjs.org/headers"
+                  if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+                  node-gyp install --devdir="$env:USERPROFILE\.electron-gyp" --target=$(jq -r .devDependencies.electron package.json) --dist-url="https://electronjs.org/headers" --arch arm64
+                  if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+                  npm ci
             - name: release/update-version
               uses: ./.github/actions/version
             - name: release/build-nsis
