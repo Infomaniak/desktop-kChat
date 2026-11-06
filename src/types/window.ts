@@ -205,7 +205,7 @@ declare global {
             callDefault: () => void;
         };
         jitsiNodeAPI: {
-            setupRenderer: (parentNode: Element, callInfo: IkCallInfo) => JitsiMeetExternalAPI;
+            setupRenderer: (parentNodeOrSelector: Element | string, callInfo: IkCallInfo) => JitsiMeetExternalAPI;
             onLoadServerUrl: (listener: (serverUrl: string) => void) => void;
             getCallInfo: () => {
                 user: object;

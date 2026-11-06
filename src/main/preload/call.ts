@@ -27,6 +27,8 @@ import {CALL_ENDED, CALL_READY_TO_CLOSE} from 'common/communication';
 import {KMEET_ORIGIN} from 'common/utils/constants';
 import JitsiMeetExternalAPI from 'common/utils/external_api';
 
+import {resolveParentNode} from './callDom';
+
 // Ik: expose the SDK bridge on the page main world before any page script runs.
 installSdkBridge();
 
@@ -76,15 +78,15 @@ let api: _JitsiMeetExternalAPI | undefined;
 /**
  * Setup the renderer process.
  *
- * @param {*} selector - CSS selector of the container element (the webapp passes a
- * selector string because the contextBridge can only copy plain values).
+ * @param {*} parentNodeOrSelector - Container element from the legacy webapp, or a
+ * selector string from the context-isolated webapp.
  * @param {*} callInfo - Call info object.
  * @returns {void}
  */
-function setupRenderer(selector: string, callInfo: CallInfo) {
-    const parentNode = document.querySelector(selector);
+function setupRenderer(parentNodeOrSelector: string | Element, callInfo: CallInfo) {
+    const parentNode = resolveParentNode(parentNodeOrSelector);
     if (!parentNode) {
-        throw new Error(`kmeet: setupRenderer container not found for selector: ${selector}`);
+        throw new Error(`kmeet: setupRenderer container not found for selector: ${parentNodeOrSelector}`);
     }
 
     const options: ExternalAPIOptions = {
@@ -261,8 +263,8 @@ contextBridge.exposeInMainWorld('jitsiNodeAPI', {
     setupRendererAcceptsSelector: true,
 
     // @ts-expect-error legacy type error
-    setupRenderer: (selector: string, callInfo: CallInfo) => {
-        setupRenderer(selector, callInfo);
+    setupRenderer: (parentNodeOrSelector: string | Element, callInfo: CallInfo) => {
+        setupRenderer(parentNodeOrSelector, callInfo);
     },
 
     // @ts-expect-error legacy type error
@@ -294,4 +296,3 @@ contextBridge.exposeInMainWorld('jitsiNodeAPI', {
     },
 });
 /* eslint-disable */
-
